@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fakeClient, sentBody, sentUrl } from '../helpers.js'
+import { fakeClient, sentBody, sentQuery, sentUrl } from '../helpers.js'
 
 const customerBody = {
   uuid: 'cust-uuid-1',
@@ -30,9 +30,9 @@ describe('Customers', () => {
 
     await client.customers.show('000010', { uuid: 'cust-uuid-1' })
 
-    expect(sentBody(calls)).toEqual({
-      data: { sid: '000010' },
-      filters: { uuid: 'cust-uuid-1' },
+    expect(sentQuery(calls)).toEqual({
+      'data[sid]': '000010',
+      'filters[uuid]': 'cust-uuid-1',
     })
   })
 

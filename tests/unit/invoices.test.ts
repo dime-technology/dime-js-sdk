@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fakeClient, sentBody, sentUrl } from '../helpers.js'
+import { fakeClient, sentBody, sentQuery, sentUrl } from '../helpers.js'
 
 const invoiceBody = {
   id: 1,
@@ -52,9 +52,9 @@ describe('Invoices', () => {
     const page = await client.invoices.list('000010', { status: 'sent' })
 
     expect(sentUrl(calls)).toContain('invoices')
-    expect(sentBody(calls)).toEqual({
-      data: { sid: '000010' },
-      filters: { status: 'sent' },
+    expect(sentQuery(calls)).toEqual({
+      'data[sid]': '000010',
+      'filters[status]': 'sent',
     })
     expect(page.data).toHaveLength(1)
     expect(page.data[0]?.invoiceNumber).toBe('INV-0001')
@@ -68,7 +68,7 @@ describe('Invoices', () => {
     const invoice = await client.invoices.show('000010', 42)
 
     expect(sentUrl(calls)).toContain('invoice')
-    expect(sentBody(calls)).toEqual({ data: { sid: '000010', invoice_id: 42 } })
+    expect(sentQuery(calls)).toEqual({ 'data[sid]': '000010', 'data[invoice_id]': '42' })
     expect(invoice.id).toBe(1)
     expect(invoice.total).toBe('300')
     expect(invoice.allowPartialPayment).toBe(true)

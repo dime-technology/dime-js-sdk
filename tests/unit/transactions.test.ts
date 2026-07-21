@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fakeClient, sentBody, sentUrl, txnResponse } from '../helpers.js'
+import { fakeClient, sentBody, sentQuery, sentUrl, txnResponse } from '../helpers.js'
 
 describe('Transactions', () => {
   it('chargeCard sends correct envelope and maps response', async () => {
@@ -70,7 +70,7 @@ describe('Transactions', () => {
     await client.transactions.show('000010', { transaction_info_id: 99 })
 
     expect(sentUrl(calls)).toContain('/api/transaction')
-    expect((sentBody(calls) as Record<string, unknown>)?.['data']).toMatchObject({ sid: '000010', transaction_info_id: 99 })
+    expect(sentQuery(calls)).toMatchObject({ 'data[sid]': '000010', 'data[transaction_info_id]': '99' })
   })
 
   it('list returns a CursorPage', async () => {

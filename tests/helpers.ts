@@ -2,7 +2,7 @@ import { Client } from '../src/client.js'
 import { Config } from '../src/config.js'
 
 export type MockResponse = { status: number; body: unknown; headers?: Record<string, string> }
-export type Call = { url: string; method: string; body: unknown }
+export type Call = { url: string; method: string; body: unknown; headers: Record<string, string> }
 
 export function createMockFetch(responses: MockResponse[]) {
   let callIndex = 0
@@ -28,7 +28,14 @@ export function createMockFetch(responses: MockResponse[]) {
       }
     }
 
-    calls.push({ url, method: init?.method ?? 'GET', body })
+    const headers: Record<string, string> = {}
+    if (init?.headers) {
+      for (const [k, v] of Object.entries(init.headers as Record<string, string>)) {
+        headers[k] = v
+      }
+    }
+
+    calls.push({ url, method: init?.method ?? 'GET', body, headers })
 
     return new Response(JSON.stringify(response.body), {
       status: response.status,
@@ -57,6 +64,16 @@ export function sentBody(calls: Call[], index = 0): unknown {
 
 export function sentUrl(calls: Call[], index = 0): string {
   return calls[index]?.url ?? ''
+}
+
+export function sentQuery(calls: Call[], index = 0): Record<string, string> {
+  const url = calls[index]?.url ?? ''
+  const q = url.slice(url.indexOf('?') + 1)
+  return url.includes('?') ? Object.fromEntries(new URLSearchParams(q)) : {}
+}
+
+export function sentHeaders(calls: Call[], index = 0): Record<string, string> {
+  return calls[index]?.headers ?? {}
 }
 
 export function txnResponse(overrides: Record<string, unknown> = {}) {

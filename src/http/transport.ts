@@ -17,9 +17,11 @@ export class Transport {
   /**
    * Execute a request and return the decoded JSON body.
    *
-   * The Dime API expects request parameters in the JSON body even for GET
-   * requests; this transport always sends the payload as a JSON body regardless
-   * of HTTP method, matching the server's expectation.
+   * The Dime API reads the same `{ data, filters }` envelope whether it arrives
+   * as a JSON body or as nested query parameters. The Fetch standard forbids a
+   * body on GET/HEAD (undici throws), so for those methods the envelope is
+   * serialised into the query string (`data[sid]=…&filters[status]=…`) and no
+   * body is sent; every other method sends the envelope as a JSON body.
    */
   async request(
     method: string,
@@ -29,20 +31,29 @@ export class Transport {
   ): Promise<Raw> {
     let url = `${this.config.baseUri()}${path.replace(/^\//, '')}`
 
-    if (Object.keys(query).length > 0) {
-      url += '?' + new URLSearchParams(query).toString()
+    const bodyless = method.toUpperCase() === 'GET' || method.toUpperCase() === 'HEAD'
+
+    const params: Record<string, string> = { ...query }
+    if (bodyless) Object.assign(params, flattenParams(body))
+
+    if (Object.keys(params).length > 0) {
+      url += '?' + new URLSearchParams(params).toString()
     }
 
-    const hasBody = Object.keys(body).length > 0
+    const sendBody = !bodyless && Object.keys(body).length > 0
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.config.token}`,
+      Accept: 'application/json',
+      'X-Dime-Sdk': `dime-js-sdk/${VERSION}`,
+    }
+    // Only advertise a JSON body when we actually send one; otherwise the API
+    // tries to parse the empty body and rejects the request with "Invalid JSON".
+    if (sendBody) headers['Content-Type'] = 'application/json'
+
     const init: RequestInit = {
       method,
-      headers: {
-        Authorization: `Bearer ${this.config.token}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-Dime-Sdk': `dime-js-sdk/${VERSION}`,
-      },
-      ...(hasBody ? { body: JSON.stringify(body) } : {}),
+      headers,
+      ...(sendBody ? { body: JSON.stringify(body) } : {}),
     }
 
     return this.attempt(url, init, 0)
@@ -95,6 +106,34 @@ export class Transport {
         : Math.min(2 ** attempt * this.config.retryBaseDelay * 1_000, 30_000)
     await this.sleepFn(ms)
   }
+}
+
+/**
+ * Flatten a nested envelope into PHP-style bracketed query pairs, e.g.
+ * `{ data: { sid: '1' }, filters: { status: 'all' } }` becomes
+ * `{ 'data[sid]': '1', 'filters[status]': 'all' }`. Booleans follow the same
+ * '1'/'0' convention the API uses elsewhere; null/undefined are dropped.
+ */
+function flattenParams(obj: Raw, prefix = ''): Record<string, string> {
+  const out: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === null || value === undefined) continue
+
+    const name = prefix ? `${prefix}[${key}]` : key
+
+    if (Array.isArray(value)) {
+      value.forEach((item, i) => {
+        Object.assign(out, flattenParams({ [i]: item }, name))
+      })
+    } else if (typeof value === 'object') {
+      Object.assign(out, flattenParams(value as Raw, name))
+    } else {
+      out[name] = typeof value === 'boolean' ? (value ? '1' : '0') : String(value)
+    }
+  }
+
+  return out
 }
 
 function parseRetryAfter(response: Response): number | undefined {

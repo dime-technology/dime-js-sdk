@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fakeClient, sentBody, sentUrl } from '../helpers.js'
+import { fakeClient, sentBody, sentQuery, sentUrl } from '../helpers.js'
 
 const recurringBody = {
   id: 1,
@@ -38,9 +38,9 @@ describe('RecurringInvoices', () => {
     const page = await client.recurringInvoices.list('000010', { status: 'Active' })
 
     expect(sentUrl(calls)).toContain('recurring-invoices')
-    expect(sentBody(calls)).toEqual({
-      data: { sid: '000010' },
-      filters: { status: 'Active' },
+    expect(sentQuery(calls)).toEqual({
+      'data[sid]': '000010',
+      'filters[status]': 'Active',
     })
     expect(page.data[0]?.status).toBe('Active')
     expect(page.data[0]?.customerName).toBe('Shawn Maida')
@@ -52,7 +52,7 @@ describe('RecurringInvoices', () => {
     const template = await client.recurringInvoices.show('000010', 3)
 
     expect(sentUrl(calls)).toContain('recurring-invoice')
-    expect(sentBody(calls)).toEqual({ data: { sid: '000010', recurring_invoice_id: 3 } })
+    expect(sentQuery(calls)).toEqual({ 'data[sid]': '000010', 'data[recurring_invoice_id]': '3' })
     expect(template.recurrenceSchedule).toBe('Monthly')
     expect(template.customer.email).toBe('shawn.maida@fostermade.co')
     expect(template.items[0]?.unitPrice).toBe('100')
