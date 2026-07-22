@@ -74,6 +74,8 @@ them, in a `filters` object). All amounts are returned as strings to avoid float
 | `dime.addresses`             | list, show, create, update, delete                               |
 | `dime.deposits`              | list, listWithTransactions, show                                 |
 | `dime.recurringPayments`     | list, show, create, edit, pause, cancel, activate, delete        |
+| `dime.invoices`              | list, show, create, update, delete, send, markSent, void, duplicate, pay, getLink, addLineItem, updateLineItem, deleteLineItem, listItems, createItem |
+| `dime.recurringInvoices`     | list, show, create, cancel                                       |
 
 ### Transactions
 
@@ -162,6 +164,82 @@ const rp = await dime.recurringPayments.create('000010', {
 await dime.recurringPayments.pause('000010', rp.id!, '2026-09-01 00:00:00')
 await dime.recurringPayments.activate('000010', rp.id!)
 await dime.recurringPayments.cancel('000010', rp.id!)
+```
+
+### Invoices
+
+Invoices are scoped to a merchant `sid` and built from line items that each reference a merchant
+item (a fund/designation). Draft invoices can be edited; once sent they are locked. Amounts are
+returned as strings.
+
+```ts
+// Look up (or create) the items a line can reference
+const items = await dime.invoices.listItems('000010')
+const item = await dime.invoices.createItem('000010', {
+  name: 'Consulting',
+  price: 125,
+  tax_deductible: false,
+})
+
+// Create a draft invoice with one or more line items
+const invoice = await dime.invoices.create('000010', {
+  customer_id: 88,
+  customer_name: 'Jane Doe',
+  customer_email: 'jane@example.com',
+  payment_terms: 'net_15', // due_on_receipt | net_15 | net_30 | net_60
+  lines: [
+    { item_id: item.id, name: 'Consulting', description: '2 hours', quantity: 2, unit_price: 125 },
+  ],
+})
+
+// Tweak the draft's line items (each returns the refreshed invoice)
+await dime.invoices.addLineItem('000010', invoice.id!, { item_id: item.id!, name: 'Setup', quantity: 1, unit_price: 50 })
+await dime.invoices.updateLineItem('000010', invoice.id!, invoice.items[0]!.id!, { quantity: 3 })
+await dime.invoices.deleteLineItem('000010', invoice.id!, invoice.items[0]!.id!)
+
+// Email it to the customer, or activate the pay link without emailing
+await dime.invoices.send('000010', invoice.id!)
+await dime.invoices.markSent('000010', invoice.id!)
+
+// Share the public pay link
+const { publicUrl } = await dime.invoices.getLink('000010', invoice.id!)
+
+// Take a merchant-initiated (MOTO) payment against an open invoice
+await dime.invoices.pay('000010', invoice.id!, {
+  payment_type: 'cc', // cc | ach
+  token: 'tok_abc123',
+  amount: 100, // optional partial amount when the invoice allows it
+})
+
+// Duplicate, void, delete
+const copy = await dime.invoices.duplicate('000010', invoice.id!)
+await dime.invoices.void('000010', invoice.id!)
+await dime.invoices.delete('000010', copy.id!) // drafts only
+
+// List, optionally filtered by status
+const page = await dime.invoices.list('000010', { status: 'sent' })
+```
+
+### Recurring invoices
+
+Recurring-invoice templates generate and send invoices on a schedule.
+
+```ts
+const template = await dime.recurringInvoices.create('000010', {
+  customer_id: 88,
+  payment_terms: 'net_15',
+  recurring_frequency: 'Monthly', // Weekly | Biweekly | FirstFifteenth | Monthly | Yearly
+  recurring_start_date: '2026-08-01',
+  recurring_end_date: '2027-08-01', // optional
+  lines: [{ item_id: 5, name: 'Monthly retainer', quantity: 1, unit_price: 500 }],
+})
+
+const detail = await dime.recurringInvoices.show('000010', template.id!)
+detail.upcomingRunDates // ['2026-08-01', '2026-09-01', ...]
+
+await dime.recurringInvoices.cancel('000010', template.id!)
+
+const page = await dime.recurringInvoices.list('000010', { status: 'Active' })
 ```
 
 ## Pagination

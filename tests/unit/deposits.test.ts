@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fakeClient, sentBody } from '../helpers.js'
+import { fakeClient, sentQuery } from '../helpers.js'
 
 describe('Deposits', () => {
   it('list returns CursorPage of deposits', async () => {
@@ -55,6 +55,6 @@ describe('Deposits', () => {
 
     await client.deposits.show('000010', { sweep_id: 'SWP001' })
 
-    expect(sentBody(calls)).toEqual({ data: { sid: '000010', sweep_id: 'SWP001' } })
+    expect(sentQuery(calls)).toEqual({ 'data[sid]': '000010', 'data[sweep_id]': 'SWP001' })
   })
 })

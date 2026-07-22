@@ -3,8 +3,10 @@ import { Transport } from './http/transport.js'
 import { Addresses } from './resources/addresses.js'
 import { Customers } from './resources/customers.js'
 import { Deposits } from './resources/deposits.js'
+import { Invoices } from './resources/invoices.js'
 import { Merchants } from './resources/merchants.js'
 import { PaymentMethods } from './resources/payment-methods.js'
+import { RecurringInvoices } from './resources/recurring-invoices.js'
 import { RecurringPayments } from './resources/recurring-payments.js'
 import { Transactions } from './resources/transactions.js'
 
@@ -27,6 +29,8 @@ export class Client {
   readonly addresses: Addresses
   readonly deposits: Deposits
   readonly recurringPayments: RecurringPayments
+  readonly invoices: Invoices
+  readonly recurringInvoices: RecurringInvoices
 
   private readonly _config: Config
 
@@ -42,6 +46,8 @@ export class Client {
     this.addresses = new Addresses(transport)
     this.deposits = new Deposits(transport)
     this.recurringPayments = new RecurringPayments(transport)
+    this.invoices = new Invoices(transport)
+    this.recurringInvoices = new RecurringInvoices(transport)
   }
 
   config(): Config {
