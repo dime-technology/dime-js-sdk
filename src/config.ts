@@ -1,5 +1,5 @@
 export const DEFAULT_BASE_URL = 'https://app.dimepayments.com'
-export const VERSION = '1.0.0'
+export const VERSION = '1.1.0'
 
 export interface ConfigOptions {
   /** Sanctum personal access token (sent as Bearer). */
