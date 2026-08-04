@@ -1,0 +1,57 @@
+name: Publish
+
+# Publishing is driven by GitHub Releases: tag, write the release notes, hit
+# publish, and this ships the tag to npm. workflow_dispatch is the escape hatch
+# for republishing a tag whose release already exists — select the tag as the
+# ref when dispatching.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      # The SDK carries its version in three places and they drift silently.
+      # v1.0.0 sat on npm for ten weeks while main had moved on, so fail loudly
+      # rather than publish a package that misreports itself in X-Dime-Sdk.
+      - name: Verify the tag matches every declared version
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name || github.ref_name }}
+        run: |
+          tag="${TAG_NAME#v}"
+          pkg=$(node -p "require('./package.json').version")
+          src=$(node -p "require('fs').readFileSync('src/config.ts','utf8').match(/VERSION = '([^']+)'/)[1]")
+          echo "tag=$tag  package.json=$pkg  src/config.ts=$src"
+          [ "$tag" = "$pkg" ] || { echo "::error::package.json ($pkg) does not match tag ($tag)"; exit 1; }
+          [ "$tag" = "$src" ] || { echo "::error::src/config.ts ($src) does not match tag ($tag)"; exit 1; }
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      # --access public because @dime-technology/* is a scoped package, which
+      # npm would otherwise publish as restricted.
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
