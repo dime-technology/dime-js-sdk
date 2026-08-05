@@ -40,6 +40,14 @@
   ],
   "author": "Dime Technology",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dime-technology/dime-js-sdk.git"
+  },
+  "homepage": "https://github.com/dime-technology/dime-js-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/dime-technology/dime-js-sdk/issues"
+  },
   "engines": {
     "node": ">=18"
   },
