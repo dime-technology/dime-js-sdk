@@ -29,7 +29,11 @@ export class Invoices extends AbstractResource {
   }
 
   async show(sid: string, invoiceId: number | string): Promise<Invoice> {
-    const raw = await this.transport.request('GET', 'invoice', this.envelope({ sid, invoice_id: invoiceId }))
+    const raw = await this.transport.request(
+      'GET',
+      'invoice',
+      this.envelope({ sid, invoice_id: invoiceId }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
@@ -47,7 +51,11 @@ export class Invoices extends AbstractResource {
    *   `reminder_settings`.
    */
   async create(sid: string, attributes: Raw): Promise<Invoice> {
-    const raw = await this.transport.request('POST', 'invoice/create', this.envelope({ sid, ...attributes }))
+    const raw = await this.transport.request(
+      'POST',
+      'invoice/create',
+      this.envelope({ sid, ...attributes }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
@@ -58,35 +66,59 @@ export class Invoices extends AbstractResource {
    * @param attributes same shape as {@link Invoices.create}
    */
   async update(sid: string, invoiceId: number | string, attributes: Raw): Promise<Invoice> {
-    const raw = await this.transport.request('PATCH', 'invoice/update', this.envelope({ sid, invoice_id: invoiceId, ...attributes }))
+    const raw = await this.transport.request(
+      'PATCH',
+      'invoice/update',
+      this.envelope({ sid, invoice_id: invoiceId, ...attributes }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   async delete(sid: string, invoiceId: number | string): Promise<MessageResult> {
-    const raw = await this.transport.request('POST', 'invoice/delete', this.envelope({ sid, invoice_id: invoiceId }))
+    const raw = await this.transport.request(
+      'POST',
+      'invoice/delete',
+      this.envelope({ sid, invoice_id: invoiceId }),
+    )
     return MessageResult.fromRaw((raw['data'] as Raw) ?? raw)
   }
 
   /** Email the invoice to the customer and advance it to Sent. */
   async send(sid: string, invoiceId: number | string): Promise<Invoice> {
-    const raw = await this.transport.request('POST', 'invoice/send', this.envelope({ sid, invoice_id: invoiceId }))
+    const raw = await this.transport.request(
+      'POST',
+      'invoice/send',
+      this.envelope({ sid, invoice_id: invoiceId }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   /** Activate a draft invoice for payment without emailing it. */
   async markSent(sid: string, invoiceId: number | string): Promise<Invoice> {
-    const raw = await this.transport.request('POST', 'invoice/mark-sent', this.envelope({ sid, invoice_id: invoiceId }))
+    const raw = await this.transport.request(
+      'POST',
+      'invoice/mark-sent',
+      this.envelope({ sid, invoice_id: invoiceId }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   async void(sid: string, invoiceId: number | string): Promise<Invoice> {
-    const raw = await this.transport.request('PATCH', 'invoice/void', this.envelope({ sid, invoice_id: invoiceId }))
+    const raw = await this.transport.request(
+      'PATCH',
+      'invoice/void',
+      this.envelope({ sid, invoice_id: invoiceId }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   /** Clone any invoice into a new draft with a freshly allocated number. */
   async duplicate(sid: string, invoiceId: number | string): Promise<Invoice> {
-    const raw = await this.transport.request('POST', 'invoice/duplicate', this.envelope({ sid, invoice_id: invoiceId }))
+    const raw = await this.transport.request(
+      'POST',
+      'invoice/duplicate',
+      this.envelope({ sid, invoice_id: invoiceId }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
@@ -103,13 +135,21 @@ export class Invoices extends AbstractResource {
    *   Optional: `memo`, `billing_address`.
    */
   async pay(sid: string, invoiceId: number | string, attributes: Raw): Promise<Invoice> {
-    const raw = await this.transport.request('POST', 'invoice/pay', this.envelope({ sid, invoice_id: invoiceId, ...attributes }))
+    const raw = await this.transport.request(
+      'POST',
+      'invoice/pay',
+      this.envelope({ sid, invoice_id: invoiceId, ...attributes }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   /** Get the public pay link (and token) for an invoice. */
   async getLink(sid: string, invoiceId: number | string): Promise<InvoiceLink> {
-    const raw = await this.transport.request('GET', 'invoice/link', this.envelope({ sid, invoice_id: invoiceId }))
+    const raw = await this.transport.request(
+      'GET',
+      'invoice/link',
+      this.envelope({ sid, invoice_id: invoiceId }),
+    )
     return InvoiceLink.fromRaw((raw['data'] as Raw) ?? {})
   }
 
@@ -120,7 +160,11 @@ export class Invoices extends AbstractResource {
    *   required; `description` is optional.
    */
   async addLineItem(sid: string, invoiceId: number | string, attributes: Raw): Promise<Invoice> {
-    const raw = await this.transport.request('POST', 'invoice/line-item/add', this.envelope({ sid, invoice_id: invoiceId, ...attributes }))
+    const raw = await this.transport.request(
+      'POST',
+      'invoice/line-item/add',
+      this.envelope({ sid, invoice_id: invoiceId, ...attributes }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
@@ -130,14 +174,31 @@ export class Invoices extends AbstractResource {
    * @param attributes any of `item_id`, `name`, `description`, `quantity`,
    *   `unit_price`
    */
-  async updateLineItem(sid: string, invoiceId: number | string, lineItemId: number | string, attributes: Raw): Promise<Invoice> {
-    const raw = await this.transport.request('PATCH', 'invoice/line-item/update', this.envelope({ sid, invoice_id: invoiceId, line_item_id: lineItemId, ...attributes }))
+  async updateLineItem(
+    sid: string,
+    invoiceId: number | string,
+    lineItemId: number | string,
+    attributes: Raw,
+  ): Promise<Invoice> {
+    const raw = await this.transport.request(
+      'PATCH',
+      'invoice/line-item/update',
+      this.envelope({ sid, invoice_id: invoiceId, line_item_id: lineItemId, ...attributes }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   /** Remove a single line item from a draft invoice. */
-  async deleteLineItem(sid: string, invoiceId: number | string, lineItemId: number | string): Promise<Invoice> {
-    const raw = await this.transport.request('POST', 'invoice/line-item/delete', this.envelope({ sid, invoice_id: invoiceId, line_item_id: lineItemId }))
+  async deleteLineItem(
+    sid: string,
+    invoiceId: number | string,
+    lineItemId: number | string,
+  ): Promise<Invoice> {
+    const raw = await this.transport.request(
+      'POST',
+      'invoice/line-item/delete',
+      this.envelope({ sid, invoice_id: invoiceId, line_item_id: lineItemId }),
+    )
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
@@ -157,7 +218,11 @@ export class Invoices extends AbstractResource {
    *   `tax_deductible` are optional.
    */
   async createItem(sid: string, attributes: Raw): Promise<InvoiceItem> {
-    const raw = await this.transport.request('POST', 'invoice/item/create', this.envelope({ sid, ...attributes }))
+    const raw = await this.transport.request(
+      'POST',
+      'invoice/item/create',
+      this.envelope({ sid, ...attributes }),
+    )
     return InvoiceItem.fromRaw((raw['data'] as Raw) ?? {})
   }
 }

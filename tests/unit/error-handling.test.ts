@@ -22,7 +22,8 @@ describe('Error handling', () => {
     ])
 
     await expect(client.transactions.chargeCard('000010', {})).rejects.toSatisfy(
-      (e) => e instanceof ValidationException &&
+      (e) =>
+        e instanceof ValidationException &&
         e.statusCode === 422 &&
         e.errors['data.amount']?.[0] === 'The amount field is required.' &&
         e.firstError() === 'The amount field is required.',
@@ -38,25 +39,21 @@ describe('Error handling', () => {
   })
 
   it('throws AuthenticationException for 401', async () => {
-    const { client } = fakeClient([
-      { status: 401, body: { message: 'Unauthenticated.' } },
-    ])
+    const { client } = fakeClient([{ status: 401, body: { message: 'Unauthenticated.' } }])
 
     await expect(client.transactions.list('000010')).rejects.toBeInstanceOf(AuthenticationException)
   })
 
   it('throws PermissionDeniedException for 403', async () => {
-    const { client } = fakeClient([
-      { status: 403, body: { data: { message: 'Not authorized.' } } },
-    ])
+    const { client } = fakeClient([{ status: 403, body: { data: { message: 'Not authorized.' } } }])
 
-    await expect(client.transactions.list('000010')).rejects.toBeInstanceOf(PermissionDeniedException)
+    await expect(client.transactions.list('000010')).rejects.toBeInstanceOf(
+      PermissionDeniedException,
+    )
   })
 
   it('throws NotFoundException for 404', async () => {
-    const { client } = fakeClient([
-      { status: 404, body: { data: { message: 'Not found.' } } },
-    ])
+    const { client } = fakeClient([{ status: 404, body: { data: { message: 'Not found.' } } }])
 
     await expect(client.merchants.show('bad-sid')).rejects.toBeInstanceOf(NotFoundException)
   })
@@ -105,14 +102,15 @@ describe('Error handling', () => {
 
   it('throws ConnectionException when fetch rejects', async () => {
     const networkError = new TypeError('Failed to fetch')
-    const client = (await import('../../src/client.js').then(({ Client }) =>
-      new Client({
-        token: 'test-token',
-        fetch: () => Promise.reject(networkError),
-        sleep: () => Promise.resolve(),
-        maxRetries: 0,
-      } as unknown as import('../../src/config.js').Config),
-    ))
+    const client = await import('../../src/client.js').then(
+      ({ Client }) =>
+        new Client({
+          token: 'test-token',
+          fetch: () => Promise.reject(networkError),
+          sleep: () => Promise.resolve(),
+          maxRetries: 0,
+        } as unknown as import('../../src/config.js').Config),
+    )
 
     await expect(client.transactions.list('000010')).rejects.toBeInstanceOf(ConnectionException)
   })

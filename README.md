@@ -46,13 +46,15 @@ import { Client, Config } from '@dime-technology/dime-js-sdk'
 const dime = new Client('your-api-token', 'https://staging.dimepayments.com')
 
 // Full control
-const dime = new Client(new Config({
-  token: 'your-api-token',
-  baseUrl: 'https://app.dimepayments.com',
-  timeout: 30,        // seconds
-  maxRetries: 2,      // retries 429 / 5xx / network errors with backoff
-  retryBaseDelay: 0.5,
-}))
+const dime = new Client(
+  new Config({
+    token: 'your-api-token',
+    baseUrl: 'https://app.dimepayments.com',
+    timeout: 30, // seconds
+    maxRetries: 2, // retries 429 / 5xx / network errors with backoff
+    retryBaseDelay: 0.5,
+  }),
+)
 ```
 
 The SDK sends `Authorization: Bearer <token>` and JSON headers on every request. Transient
@@ -65,17 +67,17 @@ Every resource hangs off the client as a property. The merchant `sid` is always 
 explicitly; remaining fields go in an attributes object (and lookups, where the API expects
 them, in a `filters` object). All amounts are returned as strings to avoid float rounding.
 
-| Property                     | Endpoints                                                        |
-| ---------------------------- | ---------------------------------------------------------------- |
-| `dime.transactions`          | chargeCard, chargeAch, tokenizeCard, refund, void, show, list    |
-| `dime.customers`             | list, show, create, update, delete                               |
-| `dime.paymentMethods`        | list, show, create, update, delete                               |
-| `dime.merchants`             | list, show, create, update, getFormLink                          |
-| `dime.addresses`             | list, show, create, update, delete                               |
-| `dime.deposits`              | list, listWithTransactions, show                                 |
-| `dime.recurringPayments`     | list, show, create, edit, pause, cancel, activate, delete        |
-| `dime.invoices`              | list, show, create, update, delete, send, markSent, void, duplicate, pay, getLink, addLineItem, updateLineItem, deleteLineItem, listItems, createItem |
-| `dime.recurringInvoices`     | list, show, create, cancel                                       |
+| Property                 | Endpoints                                                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dime.transactions`      | chargeCard, chargeAch, tokenizeCard, refund, void, show, list                                                                                         |
+| `dime.customers`         | list, show, create, update, delete                                                                                                                    |
+| `dime.paymentMethods`    | list, show, create, update, delete                                                                                                                    |
+| `dime.merchants`         | list, show, create, update, getFormLink                                                                                                               |
+| `dime.addresses`         | list, show, create, update, delete                                                                                                                    |
+| `dime.deposits`          | list, listWithTransactions, show                                                                                                                      |
+| `dime.recurringPayments` | list, show, create, edit, pause, cancel, activate, delete                                                                                             |
+| `dime.invoices`          | list, show, create, update, delete, send, markSent, void, duplicate, pay, getLink, addLineItem, updateLineItem, deleteLineItem, listItems, createItem |
+| `dime.recurringInvoices` | list, show, create, cancel                                                                                                                            |
 
 ### Transactions
 
@@ -196,7 +198,12 @@ const invoice = await dime.invoices.create('000010', {
 })
 
 // Tweak the draft's line items (each returns the refreshed invoice)
-await dime.invoices.addLineItem('000010', invoice.id!, { item_id: item.id!, name: 'Setup', quantity: 1, unit_price: 50 })
+await dime.invoices.addLineItem('000010', invoice.id!, {
+  item_id: item.id!,
+  name: 'Setup',
+  quantity: 1,
+  unit_price: 50,
+})
 await dime.invoices.updateLineItem('000010', invoice.id!, invoice.items[0]!.id!, { quantity: 3 })
 await dime.invoices.deleteLineItem('000010', invoice.id!, invoice.items[0]!.id!)
 
@@ -287,28 +294,28 @@ try {
   await dime.transactions.chargeCard('000010', { amount: '0' })
 } catch (e) {
   if (e instanceof ValidationException) {
-    e.getErrors()   // { 'data.amount': ['must be greater than 0'] }
+    e.getErrors() // { 'data.amount': ['must be greater than 0'] }
     e.firstError()
   } else if (e instanceof RateLimitException) {
     const wait = e.getRetryAfter() ?? 1
-    await new Promise(r => setTimeout(r, wait * 1000))
+    await new Promise((r) => setTimeout(r, wait * 1000))
   } else if (e instanceof DimeException) {
-    e.getStatusCode()    // HTTP status
-    e.getResponseBody()  // decoded API body
+    e.getStatusCode() // HTTP status
+    e.getResponseBody() // decoded API body
   }
 }
 ```
 
-| Exception                    | When                                                         |
-| ---------------------------- | ------------------------------------------------------------ |
-| `ValidationException`        | HTTP 400/422 with field errors                               |
-| `AuthenticationException`    | HTTP 401 (missing/invalid token)                             |
-| `PermissionDeniedException`  | HTTP 403 (belongs-to-company guard)                          |
-| `NotFoundException`          | HTTP 404                                                     |
-| `RateLimitException`         | HTTP 429 (carries `Retry-After`)                             |
-| `ServerException`            | HTTP 5xx                                                     |
-| `ConnectionException`        | No HTTP response (DNS, timeout, network error)               |
-| `ApiException`               | Any other non-2xx                                            |
+| Exception                   | When                                           |
+| --------------------------- | ---------------------------------------------- |
+| `ValidationException`       | HTTP 400/422 with field errors                 |
+| `AuthenticationException`   | HTTP 401 (missing/invalid token)               |
+| `PermissionDeniedException` | HTTP 403 (belongs-to-company guard)            |
+| `NotFoundException`         | HTTP 404                                       |
+| `RateLimitException`        | HTTP 429 (carries `Retry-After`)               |
+| `ServerException`           | HTTP 5xx                                       |
+| `ConnectionException`       | No HTTP response (DNS, timeout, network error) |
+| `ApiException`              | Any other non-2xx                              |
 
 ## Notes
 

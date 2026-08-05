@@ -16,11 +16,20 @@ export class RecurringInvoices extends AbstractResource {
    * @param filters `status` — Active | Paused | Cancelled | Completed
    */
   async list(sid: string, filters: Raw = {}): Promise<CursorPage<RecurringInvoice>> {
-    return this.paginate('GET', 'recurring-invoices', this.envelope({ sid }, filters), RecurringInvoice.fromRaw)
+    return this.paginate(
+      'GET',
+      'recurring-invoices',
+      this.envelope({ sid }, filters),
+      RecurringInvoice.fromRaw,
+    )
   }
 
   async show(sid: string, recurringInvoiceId: number | string): Promise<RecurringInvoice> {
-    const raw = await this.transport.request('GET', 'recurring-invoice', this.envelope({ sid, recurring_invoice_id: recurringInvoiceId }))
+    const raw = await this.transport.request(
+      'GET',
+      'recurring-invoice',
+      this.envelope({ sid, recurring_invoice_id: recurringInvoiceId }),
+    )
     return RecurringInvoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
@@ -37,12 +46,20 @@ export class RecurringInvoices extends AbstractResource {
    *   `thank_you_note`.
    */
   async create(sid: string, attributes: Raw): Promise<RecurringInvoice> {
-    const raw = await this.transport.request('POST', 'recurring-invoice/create', this.envelope({ sid, ...attributes }))
+    const raw = await this.transport.request(
+      'POST',
+      'recurring-invoice/create',
+      this.envelope({ sid, ...attributes }),
+    )
     return RecurringInvoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   async cancel(sid: string, recurringInvoiceId: number | string): Promise<RecurringInvoice> {
-    const raw = await this.transport.request('POST', 'recurring-invoice/cancel', this.envelope({ sid, recurring_invoice_id: recurringInvoiceId }))
+    const raw = await this.transport.request(
+      'POST',
+      'recurring-invoice/cancel',
+      this.envelope({ sid, recurring_invoice_id: recurringInvoiceId }),
+    )
     return RecurringInvoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 }

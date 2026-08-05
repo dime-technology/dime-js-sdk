@@ -32,17 +32,14 @@ export abstract class AbstractResource {
 
     const items = Array.isArray(raw['data']) ? (raw['data'] as Raw[]) : []
     const meta =
-      raw['meta'] !== null &&
-      typeof raw['meta'] === 'object' &&
-      !Array.isArray(raw['meta'])
+      raw['meta'] !== null && typeof raw['meta'] === 'object' && !Array.isArray(raw['meta'])
         ? (raw['meta'] as Raw)
         : {}
 
     const nextCursor = extractCursor(meta, 'next_cursor')
     const prevCursor = extractCursor(meta, 'prev_cursor')
 
-    const fetcher: PageFetcher<T> = (cursor) =>
-      this.paginate(method, path, body, map, { cursor })
+    const fetcher: PageFetcher<T> = (cursor) => this.paginate(method, path, body, map, { cursor })
 
     return new CursorPage<T>(
       items.map(map),
@@ -61,7 +58,5 @@ function extractCursor(meta: Raw, key: string): string | undefined {
 }
 
 function pruneNulls(obj: Raw): Raw {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== null && v !== undefined),
-  )
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== null && v !== undefined))
 }

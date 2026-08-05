@@ -59,7 +59,10 @@ describe('Addresses', () => {
 
   it('list returns CursorPage', async () => {
     const { client } = fakeClient([
-      { status: 200, body: { data: [{ id: 7, recipient: 'Jane', line_one: '123 Main' }], meta: {} } },
+      {
+        status: 200,
+        body: { data: [{ id: 7, recipient: 'Jane', line_one: '123 Main' }], meta: {} },
+      },
     ])
 
     const page = await client.addresses.list('000010', 'cust-uuid-1')

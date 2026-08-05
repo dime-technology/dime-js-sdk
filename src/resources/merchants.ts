@@ -21,12 +21,20 @@ export class Merchants extends AbstractResource {
   }
 
   async update(sid: string, attributes: Raw): Promise<Merchant> {
-    const raw = await this.transport.request('PATCH', 'merchant/update', this.envelope({ sid, ...attributes }))
+    const raw = await this.transport.request(
+      'PATCH',
+      'merchant/update',
+      this.envelope({ sid, ...attributes }),
+    )
     return Merchant.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   async getFormLink(sid: string): Promise<FormLink> {
-    const raw = await this.transport.request('GET', 'merchant/get-form-link', this.envelope({ sid }))
+    const raw = await this.transport.request(
+      'GET',
+      'merchant/get-form-link',
+      this.envelope({ sid }),
+    )
     return FormLink.fromRaw((raw['data'] as Raw) ?? {})
   }
 }
