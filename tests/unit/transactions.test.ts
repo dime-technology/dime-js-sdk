@@ -44,7 +44,9 @@ describe('Transactions', () => {
   })
 
   it('refund returns a MessageResult', async () => {
-    const { client } = fakeClient([{ status: 200, body: { data: { message: 'Refund successful' } } }])
+    const { client } = fakeClient([
+      { status: 200, body: { data: { message: 'Refund successful' } } },
+    ])
 
     const result = await client.transactions.refund('000010', {
       amount: '25.00',
@@ -70,7 +72,10 @@ describe('Transactions', () => {
     await client.transactions.show('000010', { transaction_info_id: 99 })
 
     expect(sentUrl(calls)).toContain('/api/transaction')
-    expect(sentQuery(calls)).toMatchObject({ 'data[sid]': '000010', 'data[transaction_info_id]': '99' })
+    expect(sentQuery(calls)).toMatchObject({
+      'data[sid]': '000010',
+      'data[transaction_info_id]': '99',
+    })
   })
 
   it('list returns a CursorPage', async () => {
@@ -79,7 +84,14 @@ describe('Transactions', () => {
         status: 200,
         body: {
           data: [
-            { transaction_type: 'CC', transaction_status: 'Success', amount: '50.00', pending: false, billing_address: {}, shippingAddress: {} },
+            {
+              transaction_type: 'CC',
+              transaction_status: 'Success',
+              amount: '50.00',
+              pending: false,
+              billing_address: {},
+              shippingAddress: {},
+            },
           ],
           meta: { next_cursor: null, prev_cursor: null, per_page: 500 },
         },
@@ -95,7 +107,9 @@ describe('Transactions', () => {
 
   it('maps shippingAddress from camelCase key', async () => {
     const { client } = fakeClient([
-      txnResponse({ shippingAddress: { addr1: '123 Main St', city: 'Atlanta', state: 'GA', zip: '30301' } }),
+      txnResponse({
+        shippingAddress: { addr1: '123 Main St', city: 'Atlanta', state: 'GA', zip: '30301' },
+      }),
     ])
 
     const txn = await client.transactions.chargeCard('000010', { amount: '10.00', token: 't' })

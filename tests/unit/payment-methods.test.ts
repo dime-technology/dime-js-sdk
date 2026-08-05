@@ -40,7 +40,9 @@ describe('PaymentMethods', () => {
   })
 
   it('delete sends POST with correct envelope', async () => {
-    const { client, calls } = fakeClient([{ status: 200, body: { data: { message: 'Payment Method successfully deleted' } } }])
+    const { client, calls } = fakeClient([
+      { status: 200, body: { data: { message: 'Payment Method successfully deleted' } } },
+    ])
 
     const result = await client.paymentMethods.delete('000010', 42, 'cust-uuid-1')
 
@@ -52,9 +54,7 @@ describe('PaymentMethods', () => {
   })
 
   it('list returns CursorPage', async () => {
-    const { client } = fakeClient([
-      { status: 200, body: { data: [pmBody], meta: {} } },
-    ])
+    const { client } = fakeClient([{ status: 200, body: { data: [pmBody], meta: {} } }])
 
     const page = await client.paymentMethods.list('000010', { uuid: 'cust-uuid-1' })
 

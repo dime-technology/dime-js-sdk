@@ -12,12 +12,20 @@ export class Deposits extends AbstractResource {
   }
 
   async listWithTransactions(sid: string, filters: Raw): Promise<DepositGroup> {
-    const raw = await this.transport.request('GET', 'deposit/list-with-trans', this.envelope({ sid }, filters))
+    const raw = await this.transport.request(
+      'GET',
+      'deposit/list-with-trans',
+      this.envelope({ sid }, filters),
+    )
     return DepositGroup.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   async show(sid: string, identifier: Raw): Promise<DepositWithTransactions> {
-    const raw = await this.transport.request('GET', 'deposit/show', this.envelope({ sid, ...identifier }))
+    const raw = await this.transport.request(
+      'GET',
+      'deposit/show',
+      this.envelope({ sid, ...identifier }),
+    )
     return DepositWithTransactions.fromRaw((raw['data'] as Raw) ?? {})
   }
 }

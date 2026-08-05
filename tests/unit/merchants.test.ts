@@ -44,7 +44,9 @@ describe('Merchants', () => {
   })
 
   it('getFormLink returns link', async () => {
-    const { client } = fakeClient([{ status: 200, body: { data: { link: 'https://onboarding.example.com/abc' } } }])
+    const { client } = fakeClient([
+      { status: 200, body: { data: { link: 'https://onboarding.example.com/abc' } } },
+    ])
 
     const result = await client.merchants.getFormLink('000010')
 
@@ -52,9 +54,7 @@ describe('Merchants', () => {
   })
 
   it('list returns CursorPage', async () => {
-    const { client } = fakeClient([
-      { status: 200, body: { data: [merchantBody], meta: {} } },
-    ])
+    const { client } = fakeClient([{ status: 200, body: { data: [merchantBody], meta: {} } }])
 
     const page = await client.merchants.list()
 

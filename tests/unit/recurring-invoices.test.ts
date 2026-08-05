@@ -12,9 +12,28 @@ const recurringBody = {
   last_run_date: null,
   thank_you_note: null,
   customer: { id: 52, name: 'Shawn Maida', email: 'shawn.maida@fostermade.co' },
-  items: [{ id: 1, item_id: 96, name: 'General', description: null, quantity: 1, unit_price: 100, amount: 100 }],
+  items: [
+    {
+      id: 1,
+      item_id: 96,
+      name: 'General',
+      description: null,
+      quantity: 1,
+      unit_price: 100,
+      amount: 100,
+    },
+  ],
   upcoming_run_dates: ['2026-08-15', '2026-09-15', '2026-10-15'],
-  invoices: [{ id: 7, invoice_number: 'INV-0007', status: 'sent', total: 100, issue_date: '2026-08-15', public_url: 'http://relictum.test/invoice/x' }],
+  invoices: [
+    {
+      id: 7,
+      invoice_number: 'INV-0007',
+      status: 'sent',
+      total: 100,
+      issue_date: '2026-08-15',
+      public_url: 'http://relictum.test/invoice/x',
+    },
+  ],
 }
 
 const summaryBody = {
@@ -31,9 +50,7 @@ const summaryBody = {
 
 describe('RecurringInvoices', () => {
   it('list sends filters and returns a CursorPage of summaries', async () => {
-    const { client, calls } = fakeClient([
-      { status: 200, body: { data: [summaryBody], meta: {} } },
-    ])
+    const { client, calls } = fakeClient([{ status: 200, body: { data: [summaryBody], meta: {} } }])
 
     const page = await client.recurringInvoices.list('000010', { status: 'Active' })
 
@@ -76,6 +93,22 @@ describe('RecurringInvoices', () => {
     expect(body['data']?.['recurring_frequency']).toBe('Monthly')
     expect(body['data']?.['lines']).toHaveLength(1)
     expect(template.id).toBe(1)
+  })
+
+  it('create forwards customer_uuid too', async () => {
+    const { client, calls } = fakeClient([{ status: 201, body: { data: recurringBody } }])
+
+    await client.recurringInvoices.create('000010', {
+      customer_uuid: '9f2a6c14-3e8b-4d21-9a77-5c1e0b8f4d33',
+      payment_terms: 'net_30',
+      recurring_frequency: 'Monthly',
+      recurring_start_date: '2026-09-01',
+      lines: [{ item_id: 5, name: 'Retainer', quantity: 1, unit_price: 500 }],
+    })
+
+    const body = sentBody(calls) as Record<string, Record<string, unknown>>
+    expect(body['data']?.['customer_uuid']).toBe('9f2a6c14-3e8b-4d21-9a77-5c1e0b8f4d33')
+    expect(body['data']).not.toHaveProperty('customer_id')
   })
 
   it('cancel POSTs recurring_invoice_id to recurring-invoice/cancel', async () => {

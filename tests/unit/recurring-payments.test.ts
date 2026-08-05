@@ -46,7 +46,9 @@ describe('RecurringPayments', () => {
     await client.recurringPayments.pause('000010', 5)
 
     // null values are pruned by envelope()
-    expect((sentBody(calls) as Record<string, unknown>)?.['data']).not.toHaveProperty('pause_until_date')
+    expect((sentBody(calls) as Record<string, unknown>)?.['data']).not.toHaveProperty(
+      'pause_until_date',
+    )
   })
 
   it('cancel sends PATCH to correct path', async () => {
@@ -66,9 +68,7 @@ describe('RecurringPayments', () => {
   })
 
   it('list returns CursorPage', async () => {
-    const { client } = fakeClient([
-      { status: 200, body: { data: [rpBody], meta: {} } },
-    ])
+    const { client } = fakeClient([{ status: 200, body: { data: [rpBody], meta: {} } }])
 
     const page = await client.recurringPayments.list('000010')
 

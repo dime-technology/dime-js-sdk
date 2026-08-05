@@ -10,8 +10,7 @@ export class Transport {
 
   constructor(private readonly config: Config) {
     this.fetchFn = config.fetch ?? globalThis.fetch
-    this.sleepFn =
-      config.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)))
+    this.sleepFn = config.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)))
   }
 
   /**
@@ -72,7 +71,9 @@ export class Transport {
       }
     } catch (err) {
       const isAbort = err instanceof Error && err.name === 'AbortError'
-      const label = isAbort ? `Request timed out after ${this.config.timeout}s` : `Could not reach the Dime API: ${err instanceof Error ? err.message : String(err)}`
+      const label = isAbort
+        ? `Request timed out after ${this.config.timeout}s`
+        : `Could not reach the Dime API: ${err instanceof Error ? err.message : String(err)}`
 
       if (attempt < this.config.maxRetries) {
         await this.sleep(attempt, undefined)

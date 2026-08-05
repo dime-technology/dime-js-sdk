@@ -57,9 +57,7 @@ describe('Customers', () => {
   })
 
   it('list returns CursorPage with customers', async () => {
-    const { client } = fakeClient([
-      { status: 200, body: { data: [customerBody], meta: {} } },
-    ])
+    const { client } = fakeClient([{ status: 200, body: { data: [customerBody], meta: {} } }])
 
     const page = await client.customers.list('000010')
 
