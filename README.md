@@ -172,6 +172,9 @@ Invoices are scoped to a merchant `sid` and built from line items that each refe
 item (a fund/designation). Draft invoices can be edited; once sent they are locked. Amounts are
 returned as strings.
 
+Identify the customer with `customer_uuid` — the same uuid every other resource uses, and the only
+identifier the customer endpoints return. `customer_id` is still accepted for older integrations.
+
 ```ts
 // Look up (or create) the items a line can reference
 const items = await dime.invoices.listItems('000010')
@@ -183,7 +186,7 @@ const item = await dime.invoices.createItem('000010', {
 
 // Create a draft invoice with one or more line items
 const invoice = await dime.invoices.create('000010', {
-  customer_id: 88,
+  customer_uuid: customer.uuid,
   customer_name: 'Jane Doe',
   customer_email: 'jane@example.com',
   payment_terms: 'net_15', // due_on_receipt | net_15 | net_30 | net_60
@@ -226,7 +229,7 @@ Recurring-invoice templates generate and send invoices on a schedule.
 
 ```ts
 const template = await dime.recurringInvoices.create('000010', {
-  customer_id: 88,
+  customer_uuid: customer.uuid,
   payment_terms: 'net_15',
   recurring_frequency: 'Monthly', // Weekly | Biweekly | FirstFifteenth | Monthly | Yearly
   recurring_start_date: '2026-08-01',

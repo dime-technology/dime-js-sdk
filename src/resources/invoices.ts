@@ -7,7 +7,23 @@ import { AbstractResource } from './abstract-resource.js'
 
 type Raw = Record<string, unknown>
 
+/**
+ * Invoice endpoints.
+ *
+ * Identify the customer with `customer_uuid` — the same identifier the customer,
+ * payment-method and address endpoints use, and the only one `Customer` exposes.
+ * `customer_id` remains accepted for integrations written against the original
+ * contract; supply exactly one.
+ *
+ * Line-item mutations return the refreshed invoice so the caller sees
+ * recalculated totals rather than a detached fragment.
+ */
 export class Invoices extends AbstractResource {
+  /**
+   * List invoices for a merchant.
+   *
+   * @param filters `status` — draft | sent | paid | partial | void | overdue
+   */
   async list(sid: string, filters: Raw = {}): Promise<CursorPage<Invoice>> {
     return this.paginate('GET', 'invoices', this.envelope({ sid }, filters), Invoice.fromRaw)
   }
@@ -17,11 +33,30 @@ export class Invoices extends AbstractResource {
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
+  /**
+   * Create a draft invoice with its line items. Every line must reference a
+   * Merchant `item_id`; the line name and unit price are snapshotted.
+   *
+   * @param attributes
+   *   `customer_uuid` (or `customer_id`), `customer_name`, `customer_email`,
+   *   `payment_terms` (`due_on_receipt` | `net_15` | `net_30` | `net_60`) and
+   *   `lines` are required. `lines[]` takes `item_id`, `name`, `quantity`,
+   *   `unit_price` and optional `description`. Optional: `invoice_number`,
+   *   `issue_date` (Y-m-d, defaults to today — `due_date` is derived from
+   *   `payment_terms`), `thank_you_note`, `allow_partial_payment`,
+   *   `reminder_settings`.
+   */
   async create(sid: string, attributes: Raw): Promise<Invoice> {
     const raw = await this.transport.request('POST', 'invoice/create', this.envelope({ sid, ...attributes }))
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
+  /**
+   * Update a draft invoice. Only drafts can be edited, and passing `lines`
+   * replaces the existing line items.
+   *
+   * @param attributes same shape as {@link Invoices.create}
+   */
   async update(sid: string, invoiceId: number | string, attributes: Raw): Promise<Invoice> {
     const raw = await this.transport.request('PATCH', 'invoice/update', this.envelope({ sid, invoice_id: invoiceId, ...attributes }))
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
@@ -55,7 +90,18 @@ export class Invoices extends AbstractResource {
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
-  /** Record a merchant-initiated (MOTO) card or ACH payment against an open invoice. */
+  /**
+   * Record a merchant-initiated (MOTO) card or ACH payment against an open
+   * invoice.
+   *
+   * @param attributes
+   *   `payment_type` is required and is `cc` or `ach`. For a card, pass a stored
+   *   `token` or raw `cardholder_name` / `card_number` / `expiration_date` (m/Y)
+   *   plus optional `cvv`; for ACH, pass `routing_number` / `account_number` /
+   *   `account_type` (Checking | Savings) / `account_name`. Omit `amount` to pay
+   *   the full balance — partial amounts require the invoice to allow them.
+   *   Optional: `memo`, `billing_address`.
+   */
   async pay(sid: string, invoiceId: number | string, attributes: Raw): Promise<Invoice> {
     const raw = await this.transport.request('POST', 'invoice/pay', this.envelope({ sid, invoice_id: invoiceId, ...attributes }))
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
@@ -67,13 +113,23 @@ export class Invoices extends AbstractResource {
     return InvoiceLink.fromRaw((raw['data'] as Raw) ?? {})
   }
 
-  /** Append a single line item to a draft invoice. */
+  /**
+   * Append a single line item to a draft invoice.
+   *
+   * @param attributes `item_id`, `name`, `quantity` and `unit_price` are
+   *   required; `description` is optional.
+   */
   async addLineItem(sid: string, invoiceId: number | string, attributes: Raw): Promise<Invoice> {
     const raw = await this.transport.request('POST', 'invoice/line-item/add', this.envelope({ sid, invoice_id: invoiceId, ...attributes }))
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
   }
 
-  /** Update a single line item on a draft invoice. */
+  /**
+   * Update a single line item on a draft invoice.
+   *
+   * @param attributes any of `item_id`, `name`, `description`, `quantity`,
+   *   `unit_price`
+   */
   async updateLineItem(sid: string, invoiceId: number | string, lineItemId: number | string, attributes: Raw): Promise<Invoice> {
     const raw = await this.transport.request('PATCH', 'invoice/line-item/update', this.envelope({ sid, invoice_id: invoiceId, line_item_id: lineItemId, ...attributes }))
     return Invoice.fromRaw((raw['data'] as Raw) ?? {})
@@ -92,7 +148,14 @@ export class Invoices extends AbstractResource {
     return items.map(InvoiceItem.fromRaw)
   }
 
-  /** Create an invoicing-only item (fund/designation) for the Merchant. */
+  /**
+   * Create an invoicing-only item (fund/designation) for the Merchant. The item
+   * is hidden from public giving pages and can be referenced as a line's
+   * `item_id`.
+   *
+   * @param attributes `name` is required; `description`, `price` and
+   *   `tax_deductible` are optional.
+   */
   async createItem(sid: string, attributes: Raw): Promise<InvoiceItem> {
     const raw = await this.transport.request('POST', 'invoice/item/create', this.envelope({ sid, ...attributes }))
     return InvoiceItem.fromRaw((raw['data'] as Raw) ?? {})
