@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # required for npm provenance
+      id-token: write # mints the OIDC token npm authenticates against
 
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +27,15 @@ jobs:
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+          # Never cache in a release build — a poisoned or stale cache would be
+          # baked into a published artifact.
+          package-manager-cache: false
+
+      # Trusted publishing needs npm >= 11.5.1; Node 22 bundles npm 10.x.
+      - name: Upgrade npm for trusted publishing
+        run: |
+          npm install -g npm@latest
+          npm --version
 
       - run: npm ci
 
@@ -49,9 +58,11 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      # --access public because @dime-technology/* is a scoped package, which
-      # npm would otherwise publish as restricted.
+      # Authenticates over OIDC via trusted publishing — there is no npm token
+      # to store or rotate. Provenance attestations are generated automatically
+      # on this path, so --provenance is not passed.
+      #
+      # --access public because @dime-technology/* is a scoped package, which npm
+      # would otherwise publish as restricted.
       - name: Publish
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
