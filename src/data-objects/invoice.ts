@@ -1,4 +1,5 @@
 import { arrArrayFrom, arrBool, arrInt, arrObjectFrom, arrString } from '../support/arr.js'
+import { CoverFeeQuote } from './cover-fee-quote.js'
 import { InvoiceCustomer } from './invoice-customer.js'
 import { InvoiceEvent } from './invoice-event.js'
 import { InvoiceLineItem } from './invoice-line-item.js'
@@ -30,6 +31,11 @@ export class Invoice {
     public readonly items: InvoiceLineItem[] = [],
     public readonly payments: InvoicePayment[] = [],
     public readonly events: InvoiceEvent[] = [],
+    // Whether the customer must pay the processing fee. The fee is not a line item
+    // and not part of `total` — see CoverFeeQuote. Appended rather than slotted in
+    // beside allowPartialPayment so the positional constructor stays compatible.
+    public readonly coverFeeRequired: boolean = false,
+    public readonly coverFeeQuote?: CoverFeeQuote,
   ) {}
 
   static fromRaw(data: Raw): Invoice {
@@ -55,6 +61,10 @@ export class Invoice {
       arrArrayFrom(data, 'items').map(InvoiceLineItem.fromRaw),
       arrArrayFrom(data, 'payments').map(InvoicePayment.fromRaw),
       arrArrayFrom(data, 'events').map(InvoiceEvent.fromRaw),
+      arrBool(data, 'cover_fee_required'),
+      data['cover_fee_quote'] && typeof data['cover_fee_quote'] === 'object'
+        ? CoverFeeQuote.fromRaw(data['cover_fee_quote'] as Raw)
+        : undefined,
     )
   }
 }

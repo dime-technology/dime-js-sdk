@@ -311,3 +311,89 @@ describe('Invoices', () => {
     expect(item.taxDeductible).toBe(false)
   })
 })
+
+describe('required cover fees', () => {
+  // The fee is quoted per method against the balance and is deliberately absent
+  // from `total`, which stays the amount owed to the merchant.
+  const coverFeeBody = {
+    ...invoiceBody,
+    subtotal: 100,
+    total: 100,
+    balance: 100,
+    cover_fee_required: true,
+    cover_fee_quote: {
+      basis: 'balance',
+      base: 100,
+      cc: { fee: 4.32, total: 104.32 },
+      ach: { fee: 1.26, total: 101.26 },
+    },
+    payments: [
+      {
+        amount: 100,
+        cover_fee: 4.32,
+        paid_at: '2026-08-06T10:00:00-04:00',
+        method: '+CC',
+        transaction_id: 'TXN91',
+      },
+    ],
+  }
+
+  it('sends cover_fee_required on create', async () => {
+    const { client, calls } = fakeClient([{ status: 201, body: { data: invoiceBody } }])
+
+    await client.invoices.create('000010', {
+      customer_uuid: '9f2a6c14-3e8b-4d21-9a77-5c1e0b8f4d33',
+      customer_name: 'Jane Doe',
+      customer_email: 'jane@example.com',
+      payment_terms: 'net_15',
+      cover_fee_required: true,
+      lines: [{ item_id: 5, name: 'Consulting', quantity: 1, unit_price: 100 }],
+    })
+
+    expect(sentBody(calls)['data']).toMatchObject({ cover_fee_required: true })
+  })
+
+  it('parses the per-method quote and keeps it out of total', async () => {
+    const { client } = fakeClient([{ status: 200, body: { data: coverFeeBody } }])
+
+    const invoice = await client.invoices.show('000010', 1)
+
+    expect(invoice.coverFeeRequired).toBe(true)
+    expect(invoice.coverFeeQuote?.basis).toBe('balance')
+    expect(invoice.coverFeeQuote?.ccFee).toBe('4.32')
+    expect(invoice.coverFeeQuote?.ccTotal).toBe('104.32')
+    expect(invoice.coverFeeQuote?.achFee).toBe('1.26')
+    expect(invoice.coverFeeQuote?.achTotal).toBe('101.26')
+    // The merchant is still owed the invoice amount; the fee sits on top of it.
+    expect(invoice.total).toBe('100')
+  })
+
+  it('exposes the fee charged alongside the amount credited on a payment', async () => {
+    const { client } = fakeClient([{ status: 200, body: { data: coverFeeBody } }])
+
+    const payment = (await client.invoices.show('000010', 1)).payments[0]!
+
+    // amount + coverFee is what the customer was actually charged.
+    expect(payment.amount).toBe('100')
+    expect(payment.coverFee).toBe('4.32')
+  })
+
+  it('leaves the quote undefined when no fee is required', async () => {
+    const { client } = fakeClient([{ status: 200, body: { data: invoiceBody } }])
+
+    const invoice = await client.invoices.show('000010', 1)
+
+    expect(invoice.coverFeeRequired).toBe(false)
+    expect(invoice.coverFeeQuote).toBeUndefined()
+  })
+
+  it('reads the flag off the list shape', async () => {
+    const { client } = fakeClient([
+      { status: 200, body: { data: [{ ...summaryBody, cover_fee_required: true }], meta: {} } },
+    ])
+
+    const page = await client.invoices.list('000010')
+
+    expect(page.data[0]!.coverFeeRequired).toBe(true)
+  })
+})
