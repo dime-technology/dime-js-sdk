@@ -44,6 +44,9 @@ export class RecurringInvoices extends AbstractResource {
    *   `recurring_start_date` (Y-m-d) and `lines` are required. Optional:
    *   `recurring_end_date` (Y-m-d, on or after the start date),
    *   `thank_you_note`.
+   *
+   *   `cover_fee_required` makes the customer cover the processing fee on every
+   *   invoice this template generates.
    */
   async create(sid: string, attributes: Raw): Promise<RecurringInvoice> {
     const raw = await this.transport.request(

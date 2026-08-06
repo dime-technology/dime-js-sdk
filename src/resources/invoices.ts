@@ -48,7 +48,13 @@ export class Invoices extends AbstractResource {
    *   `unit_price` and optional `description`. Optional: `invoice_number`,
    *   `issue_date` (Y-m-d, defaults to today — `due_date` is derived from
    *   `payment_terms`), `thank_you_note`, `allow_partial_payment`,
-   *   `reminder_settings`.
+   *   `cover_fee_required`, `reminder_settings`.
+   *
+   *   Set `cover_fee_required` to make the customer pay the processing fee. The
+   *   fee is added on top of the invoice at payment time rather than becoming a
+   *   line item, so `total` stays the amount owed to the merchant — read
+   *   `invoice.coverFeeQuote` for what the customer will actually be charged.
+   *   Omitting the field inherits the merchant's invoice setting.
    */
   async create(sid: string, attributes: Raw): Promise<Invoice> {
     const raw = await this.transport.request(
@@ -133,6 +139,12 @@ export class Invoices extends AbstractResource {
    *   `account_type` (Checking | Savings) / `account_name`. Omit `amount` to pay
    *   the full balance — partial amounts require the invoice to allow them.
    *   Optional: `memo`, `billing_address`.
+   *
+   *   On a cover-fee invoice the processing fee for `payment_type` is charged on
+   *   top of `amount`, so the card or bank account is debited more than the
+   *   invoice is credited. The fee lands as `coverFee` on the matching entry in
+   *   `invoice.payments`. Card and ACH rates differ, so the same `amount` settles
+   *   differently per `payment_type`.
    */
   async pay(sid: string, invoiceId: number | string, attributes: Raw): Promise<Invoice> {
     const raw = await this.transport.request(
