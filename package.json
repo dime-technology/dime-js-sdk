@@ -1,6 +1,6 @@
 {
   "name": "@dime-technology/dime-js-sdk",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Typed JavaScript/TypeScript client for the Dime Payments API",
   "type": "module",
   "main": "./dist/index.cjs",
