@@ -22,7 +22,7 @@ export class Invoices extends AbstractResource {
   /**
    * List invoices for a merchant.
    *
-   * @param filters `status` — draft | sent | paid | partial | void | overdue
+   * @param filters `status` — draft | sent | viewed | partially_paid | paid | void | refunded | overdue | all
    */
   async list(sid: string, filters: Raw = {}): Promise<CursorPage<Invoice>> {
     return this.paginate('GET', 'invoices', this.envelope({ sid }, filters), Invoice.fromRaw)
