@@ -62,6 +62,46 @@ export class Transactions extends AbstractResource {
     return TokenizeResult.fromRaw((raw['data'] as Raw) ?? {})
   }
 
+  /**
+   * Place a hold on a card without moving money. Pass a `token` or the raw
+   * card fields, as for {@link Transactions.chargeCard}.
+   *
+   * The returned `transactionNumber` is the handle on the authorization:
+   * collect it with {@link Transactions.capture}, or release the hold with
+   * {@link Transactions.void} (type `CC`). Capture promptly — the issuer
+   * releases an uncaptured hold on its own schedule.
+   */
+  async authorize(sid: string, attributes: Raw): Promise<Transaction> {
+    const raw = await this.transport.request(
+      'POST',
+      'transaction/authorize',
+      this.envelope({ sid, ...attributes }),
+    )
+    return Transaction.fromRaw((raw['data'] as Raw) ?? {})
+  }
+
+  /**
+   * Capture an authorization. Omit `amount` to capture the full authorized
+   * amount, or pass less to capture part of it.
+   *
+   * An authorization is captured once: a partial capture settles that amount
+   * and releases the rest to the cardholder.
+   *
+   * @param transactionId the `transactionNumber` returned by {@link Transactions.authorize}
+   */
+  async capture(
+    sid: string,
+    transactionId: number | string,
+    amount?: number | string,
+  ): Promise<MessageResult> {
+    const raw = await this.transport.request(
+      'POST',
+      'transaction/capture',
+      this.envelope({ sid, transaction_id: transactionId, amount }),
+    )
+    return MessageResult.fromRaw((raw['data'] as Raw) ?? raw)
+  }
+
   async refund(sid: string, attributes: Raw): Promise<MessageResult> {
     const raw = await this.transport.request(
       'POST',

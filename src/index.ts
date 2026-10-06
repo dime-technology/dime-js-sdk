@@ -26,6 +26,23 @@ export { CoverFeeQuote } from './data-objects/cover-fee-quote.js'
 export { RecurringInvoice } from './data-objects/recurring-invoice.js'
 export { MessageResult } from './data-objects/message-result.js'
 export { TokenizeResult } from './data-objects/tokenize-result.js'
+export { ApplicationStatus } from './data-objects/application-status.js'
+export { Chargeback } from './data-objects/chargeback.js'
+export { MerchantDocument } from './data-objects/merchant-document.js'
+export { DocumentUploadResult } from './data-objects/document-upload-result.js'
+export { DocumentUploadFailure } from './data-objects/document-upload-failure.js'
+export { HeldBalance } from './data-objects/held-balance.js'
+export { ReleasableTransactions } from './data-objects/releasable-transactions.js'
+export { ReleasableTransaction } from './data-objects/releasable-transaction.js'
+export { FundReleaseResult } from './data-objects/fund-release-result.js'
+export { FundRelease } from './data-objects/fund-release.js'
+export { SubscriptionPlan } from './data-objects/subscription-plan.js'
+export { SubscriptionItem } from './data-objects/subscription-item.js'
+export { SubscribeResult } from './data-objects/subscribe-result.js'
+export { Subscription } from './data-objects/subscription.js'
+
+// Types
+export type { DocumentFile } from './resources/documents.js'
 
 // Exceptions
 export {

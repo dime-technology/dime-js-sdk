@@ -118,3 +118,53 @@ describe('Transactions', () => {
     expect(txn.shippingAddress.city).toBe('Atlanta')
   })
 })
+
+describe('Transactions authorize and capture', () => {
+  it('authorize POSTs the card to transaction/authorize and returns the pending transaction', async () => {
+    const { client, calls } = fakeClient([
+      txnResponse({
+        transaction_status: 'Pending',
+        transaction_number: '1234567890',
+        pending: true,
+      }),
+    ])
+
+    const txn = await client.transactions.authorize('000010', {
+      amount: '100.50',
+      token: 'tok_abc',
+    })
+
+    expect(calls[0]?.method).toBe('POST')
+    expect(sentUrl(calls)).toContain('transaction/authorize')
+    expect(sentBody(calls)).toEqual({
+      data: { sid: '000010', amount: '100.50', token: 'tok_abc' },
+    })
+    expect(txn.transactionNumber).toBe('1234567890')
+    expect(txn.pending).toBe(true)
+  })
+
+  it('capture POSTs transaction_id and a partial amount', async () => {
+    const { client, calls } = fakeClient([
+      { status: 200, body: { data: { message: 'Transaction captured successfully.' } } },
+    ])
+
+    const result = await client.transactions.capture('000010', '1234567890', '50.00')
+
+    expect(calls[0]?.method).toBe('POST')
+    expect(sentUrl(calls)).toContain('transaction/capture')
+    expect(sentBody(calls)).toEqual({
+      data: { sid: '000010', transaction_id: '1234567890', amount: '50.00' },
+    })
+    expect(result.message).toBe('Transaction captured successfully.')
+  })
+
+  it('capture without an amount omits it, capturing the full authorization', async () => {
+    const { client, calls } = fakeClient([
+      { status: 200, body: { data: { message: 'Transaction captured successfully.' } } },
+    ])
+
+    await client.transactions.capture('000010', '1234567890')
+
+    expect(sentBody(calls)).toEqual({ data: { sid: '000010', transaction_id: '1234567890' } })
+  })
+})
