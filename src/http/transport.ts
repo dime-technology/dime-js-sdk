@@ -4,6 +4,13 @@ import { handleError } from './error-handler.js'
 
 type Raw = Record<string, unknown>
 
+export interface MultipartFile {
+  /** The form field name, e.g. `files[]`. */
+  field: string
+  content: Blob
+  filename: string
+}
+
 export class Transport {
   private readonly fetchFn: typeof globalThis.fetch
   private readonly sleepFn: (ms: number) => Promise<void>
@@ -40,11 +47,7 @@ export class Transport {
     }
 
     const sendBody = !bodyless && Object.keys(body).length > 0
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.config.token}`,
-      Accept: 'application/json',
-      'X-Dime-Sdk': `dime-js-sdk/${VERSION}`,
-    }
+    const headers = this.headers()
     // Only advertise a JSON body when we actually send one; otherwise the API
     // tries to parse the empty body and rejects the request with "Invalid JSON".
     if (sendBody) headers['Content-Type'] = 'application/json'
@@ -56,6 +59,41 @@ export class Transport {
     }
 
     return this.attempt(url, init, 0)
+  }
+
+  /**
+   * Execute a `multipart/form-data` request and return the decoded JSON body.
+   *
+   * Multipart has no JSON parsing, so the envelope is sent as bracketed form
+   * fields (`data[sid]=…`) — a single `data` field holding JSON would be read
+   * as a plain string. No Content-Type is set here: fetch derives it, boundary
+   * included, from the FormData body.
+   */
+  async requestMultipart(
+    method: string,
+    path: string,
+    body: Raw,
+    files: MultipartFile[],
+  ): Promise<Raw> {
+    const url = `${this.config.baseUri()}${path.replace(/^\//, '')}`
+
+    const form = new FormData()
+    for (const [name, value] of Object.entries(flattenParams(body))) {
+      form.append(name, value)
+    }
+    for (const file of files) {
+      form.append(file.field, file.content, file.filename)
+    }
+
+    return this.attempt(url, { method, headers: this.headers(), body: form }, 0)
+  }
+
+  private headers(): Record<string, string> {
+    return {
+      Authorization: `Bearer ${this.config.token}`,
+      Accept: 'application/json',
+      'X-Dime-Sdk': `dime-js-sdk/${VERSION}`,
+    }
   }
 
   private async attempt(url: string, init: RequestInit, attempt: number): Promise<Raw> {

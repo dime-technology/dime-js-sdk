@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fakeClient, sentBody } from '../helpers.js'
+import { fakeClient, sentBody, sentQuery, sentUrl } from '../helpers.js'
 
 const merchantBody = {
   name: 'Acme Corp',
@@ -59,5 +59,58 @@ describe('Merchants', () => {
     const page = await client.merchants.list()
 
     expect(page.data[0]?.name).toBe('Acme Corp')
+  })
+})
+
+describe('Merchants application status', () => {
+  it('applicationStatus sends sid as a query param and maps the onboarding fields', async () => {
+    const { client, calls } = fakeClient([
+      {
+        status: 200,
+        body: {
+          data: {
+            sid: '00069',
+            name: 'Acme Inc',
+            status: 'underwriting',
+            application_status: 'needs_documents',
+            boarded: false,
+            application_submitted_at: '2024-01-15T14:02:11+00:00',
+          },
+        },
+      },
+    ])
+
+    const status = await client.merchants.applicationStatus('00069')
+
+    expect(sentUrl(calls)).toContain('merchant/application-status')
+    expect(sentQuery(calls)).toEqual({ 'data[sid]': '00069' })
+    expect(status.status).toBe('underwriting')
+    expect(status.applicationStatus).toBe('needs_documents')
+    expect(status.boarded).toBe(false)
+    expect(status.applicationSubmittedAt).toBe('2024-01-15T14:02:11+00:00')
+  })
+
+  it('applicationStatus leaves unstarted fields undefined', async () => {
+    const { client } = fakeClient([
+      {
+        status: 200,
+        body: {
+          data: {
+            sid: '00069',
+            name: 'Acme Inc',
+            status: 'lead',
+            application_status: null,
+            boarded: false,
+            application_submitted_at: null,
+          },
+        },
+      },
+    ])
+
+    const status = await client.merchants.applicationStatus('00069')
+
+    expect(status.status).toBe('lead')
+    expect(status.applicationStatus).toBeUndefined()
+    expect(status.applicationSubmittedAt).toBeUndefined()
   })
 })

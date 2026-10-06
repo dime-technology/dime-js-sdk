@@ -26,6 +26,8 @@ export function createMockFetch(responses: MockResponse[]) {
       } catch {
         body = init.body
       }
+    } else if (init?.body instanceof FormData) {
+      body = init.body
     }
 
     const headers: Record<string, string> = {}
@@ -60,6 +62,12 @@ export function fakeClient(responses: MockResponse[]) {
 
 export function sentBody(calls: Call[], index = 0): unknown {
   return calls[index]?.body
+}
+
+export function sentForm(calls: Call[], index = 0): FormData {
+  const body = calls[index]?.body
+  if (!(body instanceof FormData)) throw new Error(`Call ${index} did not send a FormData body`)
+  return body
 }
 
 export function sentUrl(calls: Call[], index = 0): string {

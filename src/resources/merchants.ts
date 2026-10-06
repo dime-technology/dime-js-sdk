@@ -1,3 +1,4 @@
+import { ApplicationStatus } from '../data-objects/application-status.js'
 import { FormLink } from '../data-objects/form-link.js'
 import { Merchant } from '../data-objects/merchant.js'
 import { CursorPage } from '../pagination/cursor-page.js'
@@ -36,5 +37,19 @@ export class Merchants extends AbstractResource {
       this.envelope({ sid }),
     )
     return FormLink.fromRaw((raw['data'] as Raw) ?? {})
+  }
+
+  /**
+   * Where the merchant sits in onboarding — follow up an application sent with
+   * {@link Merchants.getFormLink}. Prefer the `application_status_changed`
+   * webhook to polling; poll only to reconcile after an outage.
+   */
+  async applicationStatus(sid: string): Promise<ApplicationStatus> {
+    const raw = await this.transport.request(
+      'GET',
+      'merchant/application-status',
+      this.envelope({ sid }),
+    )
+    return ApplicationStatus.fromRaw((raw['data'] as Raw) ?? {})
   }
 }

@@ -69,15 +69,20 @@ them, in a `filters` object). All amounts are returned as strings to avoid float
 
 | Property                 | Endpoints                                                                                                                                             |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dime.transactions`      | chargeCard, chargeAch, tokenizeCard, refund, void, show, list                                                                                         |
+| `dime.transactions`      | chargeCard, chargeAch, tokenizeCard, authorize, capture, refund, void, show, list                                                                     |
 | `dime.customers`         | list, show, create, update, delete                                                                                                                    |
 | `dime.paymentMethods`    | list, show, create, update, delete                                                                                                                    |
-| `dime.merchants`         | list, show, create, update, getFormLink                                                                                                               |
+| `dime.merchants`         | list, show, create, update, getFormLink, applicationStatus                                                                                            |
 | `dime.addresses`         | list, show, create, update, delete                                                                                                                    |
 | `dime.deposits`          | list, listWithTransactions, show                                                                                                                      |
 | `dime.recurringPayments` | list, show, create, edit, pause, cancel, activate, delete                                                                                             |
 | `dime.invoices`          | list, show, create, update, delete, send, markSent, void, duplicate, pay, getLink, addLineItem, updateLineItem, deleteLineItem, listItems, createItem |
 | `dime.recurringInvoices` | list, show, create, cancel                                                                                                                            |
+| `dime.chargebacks`       | list, show                                                                                                                                            |
+| `dime.documents`         | upload, list                                                                                                                                          |
+| `dime.funds`             | balance, transactions, release                                                                                                                        |
+| `dime.subscriptionPlans` | list, show, create, edit, delete, publish, archive, unarchive, subscribe                                                                              |
+| `dime.subscriptions`     | list, show, pause, resume, cancel                                                                                                                     |
 
 ### Transactions
 
@@ -121,6 +126,40 @@ await dime.transactions.void('000010', 'CC', 123456)
 
 // Read
 const txn = await dime.transactions.show('000010', { transaction_info_id: 123456 })
+```
+
+#### Authorize and capture
+
+`authorize()` places a hold on a card without moving money; `capture()` collects it. The returned
+`transactionNumber` is your handle on the hold. An authorization is captured once — capturing less
+than the full amount settles that and releases the rest — so capture the true final amount, and
+capture promptly (typically within 24 hours), since the issuer releases an uncaptured hold on its
+own schedule.
+
+```ts
+const auth = await dime.transactions.authorize('000010', {
+  amount: '100.00',
+  token: 'tok_abc123', // or raw card fields, as for chargeCard
+})
+
+await dime.transactions.capture('000010', auth.transactionNumber!) // full amount
+await dime.transactions.capture('000010', auth.transactionNumber!, '80.00') // or part of it
+
+// Release the hold instead of capturing it
+await dime.transactions.void('000010', 'CC', auth.transactionNumber!)
+```
+
+### Merchant onboarding status
+
+Follow up an application sent with `getFormLink()`. `boarded` is the ground truth for "can they
+take money"; while `status` is `underwriting`, read `applicationStatus` — only `needs_documents`
+asks anything of the merchant. Prefer the `application_status_changed` webhook to polling.
+
+```ts
+const onboarding = await dime.merchants.applicationStatus('000010')
+onboarding.status // 'underwriting'
+onboarding.applicationStatus // 'needs_documents'
+onboarding.boarded // false
 ```
 
 ### Customers, payment methods, addresses
@@ -299,6 +338,126 @@ await dime.recurringInvoices.cancel('000010', template.id!)
 const page = await dime.recurringInvoices.list('000010', { status: 'Active' })
 ```
 
+### Chargebacks and documents
+
+Chargebacks come from the processor's once-daily file, so they reflect the latest import rather
+than live dispute activity. Pair these calls with the `chargeback_*` webhooks and use them to
+reconcile. They need the `chargeback:read` ability.
+
+```ts
+const page = await dime.chargebacks.list('000010', {
+  start_date: '2026-04-01 00:00:00',
+  end_date: '2026-04-30 23:59:59',
+  representment_status: 'New', // optional
+})
+
+const chargeback = await dime.chargebacks.show('000010', '1134722723')
+chargeback.chargebackAmount // '391.48'
+chargeback.representmentDate // deadline for evidence
+```
+
+`documents.upload()` sends underwriting paperwork, identity verification and chargeback evidence
+— up to 10 PDF, JPG, PNG, DOC, DOCX or RTF files of 9 MB or less per call. Pass `Blob`/`File`
+objects, or raw bytes with a file name. It is the one `multipart/form-data` request in the API;
+the SDK builds the form for you. Files are stored independently, so check `failed` and re-send
+only those.
+
+```ts
+import { readFile } from 'node:fs/promises'
+
+const result = await dime.documents.upload(
+  '000010',
+  'RetrievalRequest', // Verification | FraudHolds | Underwriting | RetrievalRequest
+  [{ content: await readFile('receipt.pdf'), filename: 'receipt.pdf' }],
+  chargeback.transactionInfoId, // optional: attach as evidence to this chargeback
+)
+result.failed // [] when everything stored
+
+const documents = await dime.documents.list('000010', { doc_type: 'RetrievalRequest' })
+```
+
+Uploading does not forward a document to the processor; our team reviews it and does that.
+`sentToProcessorAt` is set once they have.
+
+### Held funds
+
+For merchants on a tier that holds their balance rather than sweeping it to their bank (others get
+a 422). Reading needs `funds:read`; releasing needs `funds:release` and an affiliate key.
+
+```ts
+const balance = await dime.funds.balance('000010')
+balance.releasable // '5172.72' — what a release is checked against
+
+const { transactions } = await dime.funds.transactions('000010')
+
+// Release by amount, or by transaction_info_ids (all or nothing)
+const result = await dime.funds.release('000010', 'payout-2026-10-06-0001', { amount: '1500.00' })
+await dime.funds.release('000010', 'payout-2026-10-06-0002', {
+  transaction_info_ids: transactions.map((t) => t.transactionInfoId!),
+})
+
+result.release.status // 'released' | 'failed' | 'unknown'
+```
+
+Use a fresh idempotency key per intended release and **reuse it when retrying**: a release that
+timed out may still have gone through, and the same key returns the original instead of sending the
+money twice. Always check `release.status` — a declined (`failed`) release is returned, not thrown.
+Requests that release nothing (an ineligible transaction, more than is releasable, a reused key, a
+release already in flight) throw an `ApiException`; `getResponseBody()` carries the detail.
+
+### Subscription plans and subscriptions
+
+A plan is a recurring bundle of line items. It starts as a draft, is published to take
+subscribers, and is archived to stop new ones. Subscribers keep the snapshot they signed up to, so
+editing or archiving a plan never changes an existing subscription.
+
+```ts
+const plan = await dime.subscriptionPlans.create('000010', {
+  name: 'Monthly Membership',
+  recurrence_schedule: 'Monthly', // Weekly | Biweekly | FirstFifteenth | Monthly | Yearly
+  allow_public: true, // optional: list it in the public catalog
+  lines: [{ item_id: 96, name: 'Membership', quantity: 1, unit_price: 25 }],
+})
+
+await dime.subscriptionPlans.publish('000010', plan.id!)
+plan.publicUrl // hosted subscribe page
+
+// Charge the first payment to a saved payment method and enroll the customer
+const { subscriptionId } = await dime.subscriptionPlans.subscribe(
+  '000010',
+  plan.id!,
+  customer.uuid!,
+  pm.id!,
+)
+
+// edit() replaces the plan wholesale — send every field, not just what changed
+await dime.subscriptionPlans.edit('000010', plan.id!, {
+  name: 'Membership',
+  recurrence_schedule: 'Monthly',
+  lines: [{ item_id: 96, name: 'Membership', quantity: 1, unit_price: 30 }],
+})
+await dime.subscriptionPlans.archive('000010', plan.id!)
+await dime.subscriptionPlans.unarchive('000010', plan.id!) // back to draft
+await dime.subscriptionPlans.delete('000010', plan.id!) // only with no subscribers
+
+const plans = await dime.subscriptionPlans.list('000010', 'active') // draft | active | archived
+```
+
+```ts
+const page = await dime.subscriptions.list('000010', {
+  status: 'Active', // Active | Failed | Paused | Cancelled | Ended
+  customer_uuid: customer.uuid, // optional
+})
+
+const subscription = await dime.subscriptions.show('000010', subscriptionId!)
+subscription.nextRunDate
+subscription.items // the line items snapshotted at subscribe time
+
+await dime.subscriptions.pause('000010', subscriptionId!, '2026-12-01') // omit the date to pause indefinitely
+await dime.subscriptions.resume('000010', subscriptionId!)
+await dime.subscriptions.cancel('000010', subscriptionId!)
+```
+
 ## Pagination
 
 List endpoints return a `CursorPage`. Iterate one page, walk pages manually, or stream every
@@ -366,8 +525,9 @@ try {
 
 ## Notes
 
-- **GET requests carry a JSON body.** The Dime API expects read parameters in the request body
-  even for `GET` endpoints; the SDK handles this transparently.
+- **GET parameters travel in the query string.** The Dime API reads the same `{ data, filters }`
+  envelope from a JSON body or from bracketed query parameters (`data[sid]=…`). Fetch forbids a
+  body on `GET`, so the SDK sends reads as query parameters; you never build either by hand.
 - **No API versioning.** Endpoints live under `/api` with no version prefix.
 - **Browser use:** API tokens should generally not be exposed in browser environments. This SDK
   is designed primarily for server-side use (Node.js, Next.js API routes, etc.).
