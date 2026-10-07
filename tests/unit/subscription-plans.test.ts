@@ -7,13 +7,13 @@ const planBody = {
   description: 'All-access membership',
   recurrence_schedule: 'Monthly',
   status: 'draft',
-  subtotal: 25,
-  total: 25,
+  subtotal: '25.00',
+  total: '25.00',
   token: 'ElZCvdINMjyYHjCQ4oNCuIBYZrG1s9Gone7oOpkY',
   public_url: 'https://app.dimepayments.com/subscribe/ElZCvdINMjyYHjCQ4oNCuIBYZrG1s9Gone7oOpkY',
   allow_public: true,
   created_at: '2026-09-01T10:00:00+00:00',
-  items: [{ name: 'Membership', description: null, quantity: 1, unit_price: 25 }],
+  items: [{ name: 'Membership', description: null, quantity: 1, unit_price: '25.0000' }],
 }
 
 const lines = [{ item_id: 96, name: 'Membership', quantity: 1, unit_price: 25 }]
@@ -45,11 +45,11 @@ describe('SubscriptionPlans', () => {
     expect(sentQuery(calls)).toEqual({ 'data[sid]': '000010', 'data[subscription_plan_id]': '3' })
     expect(plan.id).toBe(3)
     expect(plan.recurrenceSchedule).toBe('Monthly')
-    expect(plan.total).toBe('25')
+    expect(plan.total).toBe('25.00')
     expect(plan.allowPublic).toBe(true)
     expect(plan.publicUrl).toContain('/subscribe/')
     expect(plan.items[0]?.name).toBe('Membership')
-    expect(plan.items[0]?.unitPrice).toBe('25')
+    expect(plan.items[0]?.unitPrice).toBe('25.0000')
     expect(plan.items[0]?.description).toBeUndefined()
   })
 
@@ -129,7 +129,7 @@ describe('SubscriptionPlans', () => {
             status: 'Active',
             next_run_date: '2026-11-06',
             transaction_number: 'TXN-123',
-            amount: 25.0,
+            amount: '25.00',
           },
         },
       },
@@ -151,6 +151,6 @@ describe('SubscriptionPlans', () => {
     expect(result.status).toBe('Active')
     expect(result.nextRunDate).toBe('2026-11-06')
     expect(result.transactionNumber).toBe('TXN-123')
-    expect(result.amount).toBe('25')
+    expect(result.amount).toBe('25.00')
   })
 })
