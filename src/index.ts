@@ -43,6 +43,7 @@ export { Subscription } from './data-objects/subscription.js'
 
 // Types
 export type { DocumentFile } from './resources/documents.js'
+export type { IdempotencyOptions } from './resources/transactions.js'
 
 // Exceptions
 export {
@@ -50,6 +51,7 @@ export {
   ValidationException,
   RateLimitException,
   ApiException,
+  IdempotencyException,
   AuthenticationException,
   PermissionDeniedException,
   NotFoundException,
