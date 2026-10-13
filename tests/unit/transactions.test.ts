@@ -1,4 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import {
+  ApiException,
+  CaptureException,
+  CaptureResult,
+  IdempotencyException,
+  MessageResult,
+  ValidationException,
+} from '../../src/index.js'
 import { fakeClient, sentBody, sentQuery, sentUrl, txnResponse } from '../helpers.js'
 
 describe('Transactions', () => {
@@ -143,9 +151,21 @@ describe('Transactions authorize and capture', () => {
     expect(txn.pending).toBe(true)
   })
 
-  it('capture POSTs transaction_id and a partial amount', async () => {
+  it('capture POSTs transaction_id and a partial amount, and says what it took', async () => {
     const { client, calls } = fakeClient([
-      { status: 200, body: { data: { message: 'Transaction captured successfully.' } } },
+      {
+        status: 200,
+        body: {
+          data: {
+            message: 'Transaction captured successfully.',
+            transaction_id: '1234567890',
+            authorized_amount: '120.00',
+            captured_amount: '50.00',
+            status: 'captured',
+            captured_at: '2026-10-13T15:02:11-04:00',
+          },
+        },
+      },
     ])
 
     const result = await client.transactions.capture('000010', '1234567890', '50.00')
@@ -155,7 +175,115 @@ describe('Transactions authorize and capture', () => {
     expect(sentBody(calls)).toEqual({
       data: { sid: '000010', transaction_id: '1234567890', amount: '50.00' },
     })
+    expect(result).toBeInstanceOf(CaptureResult)
+    expect(result).toBeInstanceOf(MessageResult)
     expect(result.message).toBe('Transaction captured successfully.')
+    expect(result.transactionId).toBe('1234567890')
+    expect(result.authorizedAmount).toBe('120.00')
+    expect(result.capturedAmount).toBe('50.00')
+    expect(result.status).toBe('captured')
+    expect(result.capturedAt).toBe('2026-10-13T15:02:11-04:00')
+  })
+
+  it('capture leaves the new fields undefined against an API that only sends a message', async () => {
+    const { client } = fakeClient([
+      { status: 200, body: { data: { message: 'Transaction captured successfully.' } } },
+    ])
+
+    const result = await client.transactions.capture('000010', '1234567890')
+
+    expect(result.message).toBe('Transaction captured successfully.')
+    expect(result.capturedAmount).toBeUndefined()
+    expect(result.status).toBeUndefined()
+  })
+
+  it.each([
+    ['not_found', 'No transaction found.'],
+    ['already_captured', 'Transaction is not an open authorization.'],
+    ['voided', 'Transaction is not an open authorization.'],
+    ['refunded', 'Transaction is not an open authorization.'],
+    ['authorization_declined', 'Transaction is not an open authorization.'],
+    ['not_an_authorization', 'Transaction is not an open authorization.'],
+    ['amount_exceeds_authorization', 'Amount cannot be greater than the authorized amount'],
+    ['some_future_code', 'Something new.'],
+  ])('a refused capture (%s) throws a CaptureException with its code', async (code, message) => {
+    const { client } = fakeClient([{ status: 400, body: { data: { message, code } } }])
+
+    const error = await client.transactions.capture('000010', '1234567890').catch((e) => e)
+
+    expect(error).toBeInstanceOf(CaptureException)
+    expect(error).toBeInstanceOf(ApiException)
+    expect(error.errorCode).toBe(code)
+    expect(error.message).toBe(message)
+    expect(error.reason).toBeUndefined()
+    expect(error.statusCode).toBe(400)
+  })
+
+  it('a declined capture carries the reason', async () => {
+    const { client } = fakeClient([
+      {
+        status: 400,
+        body: {
+          data: {
+            message: 'Error processing capture',
+            code: 'processor_declined',
+            reason: 'Transaction rejected because the authorization has expired.',
+          },
+        },
+      },
+    ])
+
+    const error = await client.transactions.capture('000010', '1234567890', '50.00').catch((e) => e)
+
+    expect(error).toBeInstanceOf(CaptureException)
+    expect(error.errorCode).toBe('processor_declined')
+    expect(error.reason).toBe('Transaction rejected because the authorization has expired.')
+  })
+
+  it('a capture validation error stays a ValidationException', async () => {
+    const { client } = fakeClient([
+      {
+        status: 400,
+        body: { errors: { 'data.transaction_id': ['The data.transaction_id field is required.'] } },
+      },
+    ])
+
+    const error = await client.transactions.capture('000010', '').catch((e) => e)
+
+    expect(error).toBeInstanceOf(ValidationException)
+    expect(error).not.toBeInstanceOf(CaptureException)
+  })
+
+  it('a capture refusal without a code stays an ApiException', async () => {
+    const { client } = fakeClient([
+      { status: 400, body: { data: { message: 'Transaction is not an open authorization.' } } },
+    ])
+
+    const error = await client.transactions.capture('000010', '1234567890').catch((e) => e)
+
+    expect(error).toBeInstanceOf(ApiException)
+    expect(error).not.toBeInstanceOf(CaptureException)
+  })
+
+  it('an idempotency refusal on a capture stays an IdempotencyException', async () => {
+    const { client } = fakeClient([
+      {
+        status: 422,
+        body: {
+          data: {
+            message:
+              'This Idempotency-Key was already used for a different request. Use a new key for each new request.',
+          },
+        },
+      },
+    ])
+
+    const error = await client.transactions
+      .capture('000010', '1234567890', undefined, { idempotencyKey: 'k-1' })
+      .catch((e) => e)
+
+    expect(error).toBeInstanceOf(IdempotencyException)
+    expect(error).not.toBeInstanceOf(CaptureException)
   })
 
   it('capture without an amount omits it, capturing the full authorization', async () => {

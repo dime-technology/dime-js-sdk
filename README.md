@@ -150,6 +150,43 @@ await dime.transactions.capture('000010', auth.transactionNumber!, '80.00') // o
 await dime.transactions.void('000010', 'CC', auth.transactionNumber!)
 ```
 
+`capture()` resolves to a `CaptureResult` (v1.6.0+) that says what was taken. It extends
+`MessageResult`, so `message` still works. Amounts are two-decimal strings.
+
+```ts
+import { CaptureException } from '@dime-technology/dime-js-sdk'
+
+try {
+  const capture = await dime.transactions.capture('000010', auth.transactionNumber!, '80.00')
+  capture.authorizedAmount // "100.00"
+  capture.capturedAmount // "80.00"
+  capture.status // "captured"
+  capture.capturedAt // "2026-10-13T15:02:11-04:00"
+} catch (e) {
+  if (e instanceof CaptureException) {
+    e.errorCode // "already_captured", "voided", "processor_declined", ...
+    e.reason // on processor_declined only: why it was refused
+  }
+}
+```
+
+A refused capture throws `CaptureException`, a subclass of `ApiException`. Several refusals share
+one message, so branch on `errorCode`:
+
+| `errorCode`                    | Meaning                                                            |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `not_found`                    | No transaction with that number for this merchant                  |
+| `already_captured`             | The money was already taken, by an earlier capture or a sale       |
+| `voided`                       | The authorization was voided                                       |
+| `refunded`                     | The transaction was refunded                                       |
+| `authorization_declined`       | The authorization itself was declined, so nothing was held         |
+| `not_an_authorization`         | Not an open card authorization (an ACH payment, for example)       |
+| `amount_exceeds_authorization` | The amount is more than the hold                                   |
+| `processor_declined`           | Refused when sent; `reason` says why. An expired hold ends up here |
+
+A code the SDK doesn't list yet is passed through as given. Field validation errors still throw
+`ValidationException`.
+
 #### Idempotency keys
 
 `chargeCard`, `chargeCardToken`, `chargeAch`, `authorize`, `capture`, `refund` and `void` send an
@@ -552,6 +589,7 @@ try {
 | `ServerException`           | HTTP 5xx                                       |
 | `ConnectionException`       | No HTTP response (DNS, timeout, network error) |
 | `IdempotencyException`      | HTTP 409/422 refusing an `Idempotency-Key`     |
+| `CaptureException`          | A refused capture; `errorCode` says why        |
 | `ApiException`              | Any other non-2xx                              |
 
 ## Notes

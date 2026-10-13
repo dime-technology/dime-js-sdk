@@ -1,6 +1,9 @@
+import { CaptureResult } from '../data-objects/capture-result.js'
 import { MessageResult } from '../data-objects/message-result.js'
 import { TokenizeResult } from '../data-objects/tokenize-result.js'
 import { Transaction } from '../data-objects/transaction.js'
+import { ApiException } from '../exceptions/api-exception.js'
+import { CaptureException } from '../exceptions/capture-exception.js'
 import { CursorPage } from '../pagination/cursor-page.js'
 import { newIdempotencyKey } from '../support/idempotency-key.js'
 import { AbstractResource } from './abstract-resource.js'
@@ -127,6 +130,10 @@ export class Transactions extends AbstractResource {
    * An authorization is captured once: a partial capture settles that amount
    * and releases the rest to the cardholder.
    *
+   * Resolves to what was captured. A refused capture throws a
+   * {@link CaptureException} whose `errorCode` says why (`already_captured`,
+   * `voided`, `processor_declined`, ...).
+   *
    * @param transactionId the `transactionNumber` returned by {@link Transactions.authorize}
    */
   async capture(
@@ -134,15 +141,20 @@ export class Transactions extends AbstractResource {
     transactionId: number | string,
     amount?: number | string,
     options: IdempotencyOptions = {},
-  ): Promise<MessageResult> {
-    const raw = await this.transport.request(
-      'POST',
-      'transaction/capture',
-      this.envelope({ sid, transaction_id: transactionId, amount }),
-      {},
-      this.idempotencyHeaders(options),
-    )
-    return MessageResult.fromRaw((raw['data'] as Raw) ?? raw)
+  ): Promise<CaptureResult> {
+    let raw: Raw
+    try {
+      raw = await this.transport.request(
+        'POST',
+        'transaction/capture',
+        this.envelope({ sid, transaction_id: transactionId, amount }),
+        {},
+        this.idempotencyHeaders(options),
+      )
+    } catch (error) {
+      throw captureException(error) ?? error
+    }
+    return CaptureResult.fromRaw((raw['data'] as Raw) ?? raw)
   }
 
   async refund(
@@ -179,4 +191,27 @@ export class Transactions extends AbstractResource {
   private idempotencyHeaders(options: IdempotencyOptions): Record<string, string> {
     return { 'Idempotency-Key': options.idempotencyKey ?? newIdempotencyKey() }
   }
+}
+
+/**
+ * A refused capture carries `data.code` beside its message; anything without
+ * one (an older API, an idempotency refusal) stays the exception it was.
+ */
+function captureException(error: unknown): CaptureException | undefined {
+  if (!(error instanceof ApiException) || error.statusCode !== 400) return undefined
+
+  const data = error.responseBody['data']
+  if (typeof data !== 'object' || data === null) return undefined
+
+  const { code, reason } = data as Raw
+  if (typeof code !== 'string') return undefined
+
+  return new CaptureException(
+    error.message,
+    code,
+    typeof reason === 'string' ? reason : undefined,
+    error.statusCode,
+    error.responseBody,
+    error,
+  )
 }
