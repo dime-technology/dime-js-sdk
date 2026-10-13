@@ -2,10 +2,26 @@ import { MessageResult } from '../data-objects/message-result.js'
 import { TokenizeResult } from '../data-objects/tokenize-result.js'
 import { Transaction } from '../data-objects/transaction.js'
 import { CursorPage } from '../pagination/cursor-page.js'
+import { newIdempotencyKey } from '../support/idempotency-key.js'
 import { AbstractResource } from './abstract-resource.js'
 
 type Raw = Record<string, unknown>
 
+export interface IdempotencyOptions {
+  /**
+   * Sent as the `Idempotency-Key` header. Omit it and the SDK generates one
+   * per call, which keeps its own automatic retries from charging twice. Pass
+   * your own, and reuse it, to make your retries of the same call safe too.
+   */
+  idempotencyKey?: string
+}
+
+/**
+ * Charges, authorizations, captures, refunds and voids send an
+ * `Idempotency-Key`. The key is fixed for the call, so every automatic retry of
+ * a timeout or 5xx resends it and the API replays the first result instead of
+ * reaching the processor again.
+ */
 export class Transactions extends AbstractResource {
   async list(sid: string, filters: Raw = {}): Promise<CursorPage<Transaction>> {
     return this.paginate(
@@ -25,30 +41,48 @@ export class Transactions extends AbstractResource {
     return Transaction.fromRaw((raw['data'] as Raw) ?? {})
   }
 
-  async chargeCard(sid: string, attributes: Raw): Promise<Transaction> {
+  async chargeCard(
+    sid: string,
+    attributes: Raw,
+    options: IdempotencyOptions = {},
+  ): Promise<Transaction> {
     const raw = await this.transport.request(
       'POST',
       'transaction/charge-card',
       this.envelope({ sid, ...attributes }),
+      {},
+      this.idempotencyHeaders(options),
     )
     return Transaction.fromRaw((raw['data'] as Raw) ?? {})
   }
 
   /** @deprecated The API marks this deprecated; prefer chargeCard() with a token. */
-  async chargeCardToken(sid: string, attributes: Raw): Promise<Transaction> {
+  async chargeCardToken(
+    sid: string,
+    attributes: Raw,
+    options: IdempotencyOptions = {},
+  ): Promise<Transaction> {
     const raw = await this.transport.request(
       'POST',
       'transaction/charge-card-token',
       this.envelope({ sid, ...attributes }),
+      {},
+      this.idempotencyHeaders(options),
     )
     return Transaction.fromRaw((raw['data'] as Raw) ?? {})
   }
 
-  async chargeAch(sid: string, attributes: Raw): Promise<Transaction> {
+  async chargeAch(
+    sid: string,
+    attributes: Raw,
+    options: IdempotencyOptions = {},
+  ): Promise<Transaction> {
     const raw = await this.transport.request(
       'POST',
       'transaction/charge-ach',
       this.envelope({ sid, ...attributes }),
+      {},
+      this.idempotencyHeaders(options),
     )
     return Transaction.fromRaw((raw['data'] as Raw) ?? {})
   }
@@ -71,11 +105,17 @@ export class Transactions extends AbstractResource {
    * {@link Transactions.void} (type `CC`). Capture promptly — the issuer
    * releases an uncaptured hold on its own schedule.
    */
-  async authorize(sid: string, attributes: Raw): Promise<Transaction> {
+  async authorize(
+    sid: string,
+    attributes: Raw,
+    options: IdempotencyOptions = {},
+  ): Promise<Transaction> {
     const raw = await this.transport.request(
       'POST',
       'transaction/authorize',
       this.envelope({ sid, ...attributes }),
+      {},
+      this.idempotencyHeaders(options),
     )
     return Transaction.fromRaw((raw['data'] as Raw) ?? {})
   }
@@ -93,20 +133,29 @@ export class Transactions extends AbstractResource {
     sid: string,
     transactionId: number | string,
     amount?: number | string,
+    options: IdempotencyOptions = {},
   ): Promise<MessageResult> {
     const raw = await this.transport.request(
       'POST',
       'transaction/capture',
       this.envelope({ sid, transaction_id: transactionId, amount }),
+      {},
+      this.idempotencyHeaders(options),
     )
     return MessageResult.fromRaw((raw['data'] as Raw) ?? raw)
   }
 
-  async refund(sid: string, attributes: Raw): Promise<MessageResult> {
+  async refund(
+    sid: string,
+    attributes: Raw,
+    options: IdempotencyOptions = {},
+  ): Promise<MessageResult> {
     const raw = await this.transport.request(
       'POST',
       'transaction/refund',
       this.envelope({ sid, ...attributes }),
+      {},
+      this.idempotencyHeaders(options),
     )
     return MessageResult.fromRaw((raw['data'] as Raw) ?? raw)
   }
@@ -115,12 +164,19 @@ export class Transactions extends AbstractResource {
     sid: string,
     transactionType: string,
     transactionId: number | string,
+    options: IdempotencyOptions = {},
   ): Promise<MessageResult> {
     const raw = await this.transport.request(
       'PATCH',
       'transaction/void',
       this.envelope({ sid, transaction_type: transactionType, transaction_id: transactionId }),
+      {},
+      this.idempotencyHeaders(options),
     )
     return MessageResult.fromRaw((raw['data'] as Raw) ?? raw)
+  }
+
+  private idempotencyHeaders(options: IdempotencyOptions): Record<string, string> {
+    return { 'Idempotency-Key': options.idempotencyKey ?? newIdempotencyKey() }
   }
 }

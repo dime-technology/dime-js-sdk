@@ -1,6 +1,7 @@
 import {
   ApiException,
   AuthenticationException,
+  IdempotencyException,
   NotFoundException,
   PermissionDeniedException,
   RateLimitException,
@@ -67,7 +68,14 @@ export function handleError(status: number, body: Raw, retryAfter?: number): nev
     )
   }
 
-  const message = extractMessage(body) ?? `Dime API request failed with status ${status}.`
+  const extracted = extractMessage(body)
+  const message = extracted ?? `Dime API request failed with status ${status}.`
+
+  // Matched on the message as well as the status: merchant create also answers
+  // 409, for a likely duplicate, and that must stay an ApiException.
+  if ((status === 409 || status === 422) && extracted?.includes('Idempotency-Key')) {
+    throw new IdempotencyException(message, status, body)
+  }
 
   if (status === 401) throw new AuthenticationException(message, status, body)
   if (status === 403) throw new PermissionDeniedException(message, status, body)

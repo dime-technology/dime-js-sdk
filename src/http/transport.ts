@@ -28,12 +28,16 @@ export class Transport {
    * body on GET/HEAD (undici throws), so for those methods the envelope is
    * serialised into the query string (`data[sid]=…&filters[status]=…`) and no
    * body is sent; every other method sends the envelope as a JSON body.
+   *
+   * `headers` are added to this request only, and resent unchanged on every
+   * automatic retry of it.
    */
   async request(
     method: string,
     path: string,
     body: Raw = {},
     query: Record<string, string> = {},
+    headers: Record<string, string> = {},
   ): Promise<Raw> {
     let url = `${this.config.baseUri()}${path.replace(/^\//, '')}`
 
@@ -47,14 +51,14 @@ export class Transport {
     }
 
     const sendBody = !bodyless && Object.keys(body).length > 0
-    const headers = this.headers()
+    const requestHeaders = { ...this.headers(), ...headers }
     // Only advertise a JSON body when we actually send one; otherwise the API
     // tries to parse the empty body and rejects the request with "Invalid JSON".
-    if (sendBody) headers['Content-Type'] = 'application/json'
+    if (sendBody) requestHeaders['Content-Type'] = 'application/json'
 
     const init: RequestInit = {
       method,
-      headers,
+      headers: requestHeaders,
       ...(sendBody ? { body: JSON.stringify(body) } : {}),
     }
 

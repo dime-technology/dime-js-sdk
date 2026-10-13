@@ -59,7 +59,8 @@ const dime = new Client(
 
 The SDK sends `Authorization: Bearer <token>` and JSON headers on every request. Transient
 failures (HTTP 429 and 5xx, network errors) are retried with exponential backoff, honoring the
-`Retry-After` header when present.
+`Retry-After` header when present. Charges, authorizations, captures, refunds and voids carry an
+[`Idempotency-Key`](#idempotency-keys), so those retries never charge or refund twice.
 
 ## Resources
 
@@ -148,6 +149,35 @@ await dime.transactions.capture('000010', auth.transactionNumber!, '80.00') // o
 // Release the hold instead of capturing it
 await dime.transactions.void('000010', 'CC', auth.transactionNumber!)
 ```
+
+#### Idempotency keys
+
+`chargeCard`, `chargeCardToken`, `chargeAch`, `authorize`, `capture`, `refund` and `void` send an
+`Idempotency-Key` header. If you pass none, the SDK generates a random one (a UUID) per call and
+resends that same key on its own retries, so a charge that timed out after the processor took it
+is replayed by the API, not sent again.
+
+To make **your** retries safe as well (a job that re-runs, a user who clicks twice), pass your own
+key as the last argument and reuse it for the same intended payment:
+
+```ts
+await dime.transactions.chargeCard(
+  '000010',
+  { amount: '49.99', token: 'tok_abc123' },
+  { idempotencyKey: `order-${order.id}` },
+)
+
+await dime.transactions.capture('000010', auth.transactionNumber!, undefined, {
+  idempotencyKey: `capture-${order.id}`,
+})
+await dime.transactions.void('000010', 'CC', 123456, { idempotencyKey: `void-${order.id}` })
+```
+
+Keys are 1 to 255 printable ASCII characters, belong to your API account and are kept for 7 days.
+The same key with the same request returns the original result; the same key with a different
+request, or while the first request is still running, throws an `IdempotencyException`. A request
+the API refused up front (validation, authentication, permission, rate limit) frees its key, so the
+corrected request can reuse it.
 
 ### Merchant onboarding status
 
@@ -521,6 +551,7 @@ try {
 | `RateLimitException`        | HTTP 429 (carries `Retry-After`)               |
 | `ServerException`           | HTTP 5xx                                       |
 | `ConnectionException`       | No HTTP response (DNS, timeout, network error) |
+| `IdempotencyException`      | HTTP 409/422 refusing an `Idempotency-Key`     |
 | `ApiException`              | Any other non-2xx                              |
 
 ## Notes
