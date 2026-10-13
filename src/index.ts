@@ -25,6 +25,7 @@ export { InvoiceLink } from './data-objects/invoice-link.js'
 export { CoverFeeQuote } from './data-objects/cover-fee-quote.js'
 export { RecurringInvoice } from './data-objects/recurring-invoice.js'
 export { MessageResult } from './data-objects/message-result.js'
+export { CaptureResult } from './data-objects/capture-result.js'
 export { TokenizeResult } from './data-objects/tokenize-result.js'
 export { ApplicationStatus } from './data-objects/application-status.js'
 export { Chargeback } from './data-objects/chargeback.js'
@@ -52,6 +53,7 @@ export {
   RateLimitException,
   ApiException,
   IdempotencyException,
+  CaptureException,
   AuthenticationException,
   PermissionDeniedException,
   NotFoundException,
