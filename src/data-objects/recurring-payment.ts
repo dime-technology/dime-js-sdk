@@ -1,9 +1,15 @@
 import { arrInt, arrObjectFrom, arrString } from '../support/arr.js'
+import { RecurringPaymentItem } from './recurring-payment-item.js'
 import { RecurringPaymentMethod } from './recurring-payment-method.js'
 import { TransactionAddress } from './transaction-address.js'
 
 type Raw = Record<string, unknown>
 
+/**
+ * A recurring payment schedule. `item` is undefined when the payment is
+ * unpinned: each run is then credited to whatever the merchant's default item
+ * is at the time.
+ */
 export class RecurringPayment {
   constructor(
     public readonly id?: number,
@@ -23,6 +29,8 @@ export class RecurringPayment {
     public readonly error?: string,
     public readonly paymentMethod: RecurringPaymentMethod = new RecurringPaymentMethod(),
     public readonly shippingAddress: TransactionAddress = new TransactionAddress(),
+    public readonly coverProcessingAmount?: string,
+    public readonly item?: RecurringPaymentItem,
   ) {}
 
   static fromRaw(data: Raw): RecurringPayment {
@@ -44,6 +52,10 @@ export class RecurringPayment {
       arrString(data, 'error'),
       RecurringPaymentMethod.fromRaw(arrObjectFrom(data, ['payment_method'])),
       TransactionAddress.fromRaw(arrObjectFrom(data, ['shipping_address'])),
+      arrString(data, 'cover_processing_amount'),
+      data['item'] && typeof data['item'] === 'object'
+        ? RecurringPaymentItem.fromRaw(data['item'] as Raw)
+        : undefined,
     )
   }
 }
