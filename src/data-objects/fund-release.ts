@@ -9,6 +9,14 @@ type Raw = Record<string, unknown>
  * `failureReason`) or `unknown` (no confirmation came back; it may have gone
  * through, and its amount is held back from `releasable` until reconciled).
  * `transactionInfoIds` is empty for a release requested by amount.
+ *
+ * `returned` is what a `released` release becomes days later when the
+ * merchant's own bank rejects the transfer and the money comes back.
+ * `completedAt` still says when it was sent; `returnedAt` says when the bank
+ * rejected it, `returnCode` gives the bank's reason (R02 account closed, R03 no
+ * account, R04 invalid account number), and `returnFee` what the return cost.
+ * `fee` keeps what the transfer was quoted at. `returnFee` can be undefined on
+ * a returned release until the return fee has been reported.
  */
 export class FundRelease {
   constructor(
@@ -22,6 +30,9 @@ export class FundRelease {
     public readonly failureReason?: string,
     public readonly requestedAt?: string,
     public readonly completedAt?: string,
+    public readonly returnedAt?: string,
+    public readonly returnCode?: string,
+    public readonly returnFee?: string,
   ) {}
 
   static fromRaw(data: Raw): FundRelease {
@@ -40,6 +51,9 @@ export class FundRelease {
       arrString(data, 'failure_reason'),
       arrString(data, 'requested_at'),
       arrString(data, 'completed_at'),
+      arrString(data, 'returned_at'),
+      arrString(data, 'return_code'),
+      arrString(data, 'return_fee'),
     )
   }
 }
