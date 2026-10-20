@@ -13,6 +13,9 @@ const releaseBody = (overrides: Record<string, unknown> = {}) => ({
   failure_reason: null,
   requested_at: '2026-09-25T14:02:11+00:00',
   completed_at: '2026-09-25T14:02:12+00:00',
+  returned_at: null,
+  return_code: null,
+  return_fee: null,
   ...overrides,
 })
 
@@ -112,6 +115,40 @@ describe('Funds', () => {
     expect(result.release.fee).toBe('30')
     expect(result.release.transactionInfoIds).toEqual([])
     expect(result.release.failureReason).toBeUndefined()
+    expect(result.release.returnedAt).toBeUndefined()
+    expect(result.release.returnCode).toBeUndefined()
+    expect(result.release.returnFee).toBeUndefined()
+  })
+
+  it('release maps a release the bank returned, with what the return cost', async () => {
+    const { client } = fakeClient([
+      {
+        status: 200,
+        body: {
+          data: {
+            sid: '91828382',
+            replayed: true,
+            release: releaseBody({
+              status: 'returned',
+              status_label: 'Returned',
+              failure_reason: 'The receiving bank rejected the transfer: Account Closed.',
+              returned_at: '2026-09-29T15:37:13+00:00',
+              return_code: 'R02',
+              return_fee: 25,
+            }),
+          },
+        },
+      },
+    ])
+
+    const { release } = await client.funds.release('91828382', 'payout-2026-09-25-0001', { amount: 1500 })
+
+    expect(release.status).toBe('returned')
+    expect(release.completedAt).toBe('2026-09-25T14:02:12+00:00')
+    expect(release.returnedAt).toBe('2026-09-29T15:37:13+00:00')
+    expect(release.returnCode).toBe('R02')
+    expect(release.returnFee).toBe('25')
+    expect(release.fee).toBe('30')
   })
 
   it('release by transaction_info_ids sends the list and maps it back', async () => {

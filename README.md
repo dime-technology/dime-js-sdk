@@ -471,7 +471,7 @@ await dime.funds.release('000010', 'payout-2026-10-06-0002', {
   transaction_info_ids: transactions.map((t) => t.transactionInfoId!),
 })
 
-result.release.status // 'released' | 'failed' | 'unknown'
+result.release.status // 'released' | 'failed' | 'unknown', and later perhaps 'returned'
 ```
 
 Use a fresh idempotency key per intended release and **reuse it when retrying**: a release that
@@ -479,6 +479,13 @@ timed out may still have gone through, and the same key returns the original ins
 money twice. Always check `release.status` — a declined (`failed`) release is returned, not thrown.
 Requests that release nothing (an ineligible transaction, more than is releasable, a reused key, a
 release already in flight) throw an `ApiException`; `getResponseBody()` carries the detail.
+
+A release can also become `returned`, days after it was `released`, when the merchant's own bank
+rejects the transfer and the money comes back. The API reports it on the `funds_release_failed`
+webhook and when you retry with that release's key. `returnedAt` says when, `returnCode` gives the bank's reason
+(`R02` account closed, `R03` no account, `R04` invalid account number), and `returnFee` what the return
+cost. `fee` stays what the transfer was quoted at. `returnFee` can be empty until the return fee
+has been reported.
 
 ### Subscription plans and subscriptions
 
