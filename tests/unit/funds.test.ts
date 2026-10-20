@@ -141,7 +141,9 @@ describe('Funds', () => {
       },
     ])
 
-    const { release } = await client.funds.release('91828382', 'payout-2026-09-25-0001', { amount: 1500 })
+    const { release } = await client.funds.release('91828382', 'payout-2026-09-25-0001', {
+      amount: 1500,
+    })
 
     expect(release.status).toBe('returned')
     expect(release.completedAt).toBe('2026-09-25T14:02:12+00:00')
